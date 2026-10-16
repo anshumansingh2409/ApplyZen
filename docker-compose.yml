@@ -1,0 +1,177 @@
+services:
+  # MongoDB persistent database
+  mongodb:
+    image: mongo:7.0
+    container_name: applyzen_mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-applyzen_secret_password}
+      MONGO_INITDB_DATABASE: applyzen
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - applyzen-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for cache, rate limiting, and locks
+  redis:
+    image: redis:7.2-alpine
+    container_name: applyzen_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - applyzen-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # RabbitMQ message queue for event-driven async workers
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: applyzen_rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-guest}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - applyzen-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: applyzen_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-applyzen_secret_password}@mongodb:27017/applyzen?authSource=admin
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-guest}:${RABBITMQ_DEFAULT_PASS:-guest}@rabbitmq:5672/
+      - JWT_SECRET=${JWT_SECRET:-applyzen_super_secret_jwt_key_2026}
+      - JWT_ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=1440
+      - AI_API_KEY=${AI_API_KEY:-}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - MICROSOFT_CLIENT_ID=${MICROSOFT_CLIENT_ID:-}
+      - MICROSOFT_CLIENT_SECRET=${MICROSOFT_CLIENT_SECRET:-}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - applyzen-network
+
+  # Email Processing Worker
+  email-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: applyzen_email_worker
+    restart: unless-stopped
+    command: python -m app.workers.email_worker
+    environment:
+      - MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-applyzen_secret_password}@mongodb:27017/applyzen?authSource=admin
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-guest}:${RABBITMQ_DEFAULT_PASS:-guest}@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    networks:
+      - applyzen-network
+
+  # AI Decision & Orchestrator Worker
+  ai-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: applyzen_ai_worker
+    restart: unless-stopped
+    command: python -m app.workers.ai_worker
+    environment:
+      - MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-applyzen_secret_password}@mongodb:27017/applyzen?authSource=admin
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-guest}:${RABBITMQ_DEFAULT_PASS:-guest}@rabbitmq:5672/
+      - AI_API_KEY=${AI_API_KEY:-}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    networks:
+      - applyzen-network
+
+  # Browser Automation Playwright Worker
+  browser-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: applyzen_browser_worker
+    restart: unless-stopped
+    command: python -m app.workers.browser_worker
+    environment:
+      - MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-applyzen_secret_password}@mongodb:27017/applyzen?authSource=admin
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-guest}:${RABBITMQ_DEFAULT_PASS:-guest}@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    networks:
+      - applyzen-network
+
+  # React + Vite Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: applyzen_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - applyzen-network
+
+volumes:
+  mongodb_data:
+  redis_data:
+  rabbitmq_data:
+
+networks:
+  applyzen-network:
+    driver: bridge

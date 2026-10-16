@@ -1,0 +1,22 @@
+# Root .gitignore
+.env
+.env.local
+.env.*.local
+node_modules/
+dist/
+build/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+.DS_Store
+Thumbs.db
+*.log
+artifacts/
+.playwright/
