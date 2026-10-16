@@ -4,19 +4,43 @@ ApplyZen Additional Lifecycle, CAPTCHA, and Assistant Tests
 import pytest
 from httpx import AsyncClient, ASGITransport
 from app.main import app
+from app.database.repositories.user_repository import user_repo
 
 
 @pytest.mark.asyncio
 async def test_captcha_and_assistant_flow():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        # Clean up existing test user if present
+        existing = await user_repo.get_by_email("lifecycle@applyzen.com")
+        if existing:
+            await user_repo.delete(existing["_id"])
+
         # Signup
         signup_res = await ac.post("/api/v1/auth/signup", json={
             "email": "lifecycle@applyzen.com",
             "password": "Password12345!",
             "full_name": "Lifecycle Candidate"
         })
-        token = signup_res.json()["access_token"]
+        assert signup_res.status_code == 200
+        signup_data = signup_res.json()
+
+        # Handle email verification flow
+        if signup_data.get("status") == "pending_verification":
+            user = await user_repo.get_by_email("lifecycle@applyzen.com")
+            assert user is not None
+            otp = user.get("verification_otp")
+
+            verify_res = await ac.post("/api/v1/auth/verify-email", json={
+                "email": "lifecycle@applyzen.com",
+                "otp": otp
+            })
+            assert verify_res.status_code == 200
+            token = verify_res.json()["access_token"]
+        else:
+            token = signup_data["access_token"]
+
+        assert token is not None
         headers = {"Authorization": f"Bearer {token}"}
 
         # Process Email -> creates opportunity and application
