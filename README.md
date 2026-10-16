@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # ApplyZen — AI Career Operating System
 
 <div align="center">
@@ -111,3 +112,6 @@ ApplyZen/
 ├── docker-compose.yml  # Complete multi-service docker compose
 └── README.md
 ```
+=======
+# ApplyZen
+>>>>>>> 0e05ff866872c89f978ed021444e99a7623fd3f5
