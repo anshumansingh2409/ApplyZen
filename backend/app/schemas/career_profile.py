@@ -110,6 +110,7 @@ class AutomationPolicySchema(BaseModel):
 class CareerProfileSchema(BaseModel):
     id: Optional[str] = None
     user_id: Optional[str] = None
+    full_name: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     legal_name: Optional[str] = None
@@ -118,6 +119,9 @@ class CareerProfileSchema(BaseModel):
     dob: Optional[str] = None
     gender: Optional[str] = None
     nationality: Optional[str] = "Indian"
+    roll_number: Optional[str] = None
+    tenth_percentage: Optional[float] = None
+    twelfth_percentage: Optional[float] = None
     
     # Contact & Identity
     avatar_url: Optional[str] = None

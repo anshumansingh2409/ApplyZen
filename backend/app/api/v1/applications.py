@@ -13,9 +13,11 @@ from app.core.exceptions import NotFoundError
 router = APIRouter(prefix="/applications", tags=["Applications"])
 
 
+from datetime import datetime, timezone
+
 @router.get("")
 async def list_applications(status: Optional[str] = None, current_user: dict = Depends(get_current_user)):
-    apps = await application_repo.list_by_user(current_user["_id"], status=status)
+    apps = await application_repo.list_by_user(current_user["_id"], email=current_user.get("email"), status=status)
     for a in apps:
         a["id"] = a["_id"]
     return apps
@@ -24,10 +26,50 @@ async def list_applications(status: Optional[str] = None, current_user: dict = D
 @router.get("/{application_id}")
 async def get_application(application_id: str, current_user: dict = Depends(get_current_user)):
     app = await application_repo.get_by_id(application_id)
-    if not app or app.get("user_id") != current_user["_id"]:
+    if not app or (app.get("user_id") != current_user["_id"] and app.get("user_email") != current_user.get("email")):
         raise NotFoundError("Application not found")
     app["id"] = app["_id"]
     return app
+
+
+@router.put("/{application_id}")
+async def update_application(
+    application_id: str,
+    payload: dict = Body(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Allows user to review, edit, or add custom fields and notes to an application.
+    """
+    app = await application_repo.get_by_id(application_id)
+    if not app or (app.get("user_id") != current_user["_id"] and app.get("user_email") != current_user.get("email")):
+        raise NotFoundError("Application not found")
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    update_data = {
+        "updated_at": now_iso
+    }
+    if "form_fields" in payload:
+        update_data["form_fields"] = payload["form_fields"]
+    if "submission_notes" in payload:
+        update_data["submission_notes"] = payload["submission_notes"]
+    if "status" in payload:
+        update_data["status"] = payload["status"]
+
+    timeline = app.get("timeline", [])
+    note = payload.get("note") or "Candidate reviewed and updated application fields / notes."
+    timeline.append({
+        "title": "Application Updated by Candidate",
+        "description": note,
+        "timestamp": now_iso,
+        "status_tag": update_data.get("status", app.get("status", "SUBMITTED"))
+    })
+    update_data["timeline"] = timeline
+
+    updated = await application_repo.update(application_id, update_data)
+    if updated:
+        updated["id"] = updated["_id"]
+    return {"success": True, "application": updated, "message": "Application updated successfully"}
 
 
 @router.post("/{application_id}/review")

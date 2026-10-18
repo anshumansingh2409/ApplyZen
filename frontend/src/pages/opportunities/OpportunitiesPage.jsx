@@ -16,7 +16,10 @@ import {
   Clock
 } from 'lucide-react';
 import { opportunityService } from '../../services/opportunity.service';
+import { googleAuthClient } from '../../services/googleAuth';
+import api from '../../services/api';
 import JdPdfModal from '../../components/opportunities/JdPdfModal';
+import FormAutofillModal from '../../components/opportunities/FormAutofillModal';
 
 const formatEmailDate = (dateStr) => {
   if (!dateStr) return null;
@@ -71,9 +74,31 @@ const getTimeLeftInfo = (deadlineStr) => {
 
 
 export default function OpportunitiesPage() {
-  const [opportunities, setOpportunities] = useState([]);
+  const [opportunities, setOpportunities] = useState(() => {
+    try {
+      const cached = localStorage.getItem('applyzen_cached_opportunities');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return parsed.sort((a, b) => {
+          const timeA = new Date(a.email_received_at || a.email_timestamp || a.created_at || 0).getTime();
+          const timeB = new Date(b.email_received_at || b.email_timestamp || b.created_at || 0).getTime();
+          return timeB - timeA;
+        });
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  });
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    try {
+      const cached = localStorage.getItem('applyzen_cached_opportunities');
+      return cached && JSON.parse(cached).length > 0 ? false : true;
+    } catch {
+      return true;
+    }
+  });
   const [showIngestModal, setShowIngestModal] = useState(false);
   const [emailText, setEmailText] = useState('');
   const [ingesting, setIngesting] = useState(false);
@@ -83,13 +108,30 @@ export default function OpportunitiesPage() {
   const [stipendFilter, setStipendFilter] = useState('All');
   const [locationFilter, setLocationFilter] = useState('All');
   const [dateFilter, setDateFilter] = useState('All');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [showCustomDate, setShowCustomDate] = useState(false);
   const [selectedJdOpp, setSelectedJdOpp] = useState(null);
+  const [autofillOpp, setAutofillOpp] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
 
-  const fetchOpps = async () => {
+  const fetchOpps = async (forceLoading = false) => {
     try {
-      setLoading(true);
+      if (forceLoading || opportunities.length === 0) {
+        setLoading(true);
+      }
       const data = await opportunityService.list();
-      setOpportunities(data);
+      const sorted = (data || []).sort((a, b) => {
+        const timeA = new Date(a.email_received_at || a.email_timestamp || a.created_at || 0).getTime();
+        const timeB = new Date(b.email_received_at || b.email_timestamp || b.created_at || 0).getTime();
+        return timeB - timeA;
+      });
+      setOpportunities(sorted);
+      try {
+        localStorage.setItem('applyzen_cached_opportunities', JSON.stringify(sorted));
+      } catch (e) {
+        console.warn('Could not cache opportunities in localStorage:', e);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -99,7 +141,24 @@ export default function OpportunitiesPage() {
 
   useEffect(() => {
     fetchOpps();
+    const fetchProfile = async () => {
+      try {
+        const res = await api.get('/career-profile');
+        setUserProfile(res.data);
+      } catch (err) {
+        console.warn('Could not load user career profile for form autofill:', err);
+      }
+    };
+    fetchProfile();
   }, []);
+
+  const handleOpenFormWithAutofill = (opp) => {
+    const url = opp.google_form_url || opp.application_url;
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+    setAutofillOpp(opp);
+  };
 
   const handleCleanupMock = async () => {
     if (!window.confirm('Do you want to purge all sample/mock opportunities (Stripe, Razorpay, Google records)?')) {
@@ -108,7 +167,7 @@ export default function OpportunitiesPage() {
     try {
       const res = await opportunityService.cleanupMock();
       setToastMessage(`Purged ${res.deleted_count} sample opportunities.`);
-      await fetchOpps();
+      await fetchOpps(true);
     } catch (err) {
       console.error(err);
     }
@@ -121,7 +180,11 @@ export default function OpportunitiesPage() {
     try {
       const res = await opportunityService.clearAll();
       setToastMessage(res.message || 'Cleared all opportunities.');
-      await fetchOpps();
+      setOpportunities([]);
+      try {
+        localStorage.removeItem('applyzen_cached_opportunities');
+      } catch {}
+      await fetchOpps(true);
     } catch (err) {
       console.error(err);
     }
@@ -131,25 +194,46 @@ export default function OpportunitiesPage() {
     setSyncing(true);
     setToastMessage('');
     try {
-      const res = await opportunityService.syncEmails('gmail');
-      if (res.synced_count > 0) {
-        setToastMessage(`Scanned ${res.scanned_count} career emails. Added ${res.synced_count} new opportunities!`);
+      const res = await opportunityService.syncEmails('all');
+      const count = res.synced_count ?? (res.gmail?.synced_count || 0) + (res.outlook?.synced_count || 0);
+      const scanned = (res.gmail?.scanned_count || 0) + (res.outlook?.scanned_count || 0) || res.scanned_count || 0;
+      if (count > 0) {
+        setToastMessage(`Scanned ${scanned} emails. Added ${count} new opportunities!`);
       } else {
-        setToastMessage(res.message || 'Scanned inbox. No new career opportunities found.');
+        const msg = res.message || res.gmail?.message || res.outlook?.message || 'Scanned inboxes. No new career opportunities found.';
+        setToastMessage(msg);
       }
-      await fetchOpps();
+      await fetchOpps(true);
     } catch (err) {
-      setToastMessage(err.response?.data?.message || err.response?.data?.detail || 'Inbox sync failed. Ensure Gmail is connected in Integrations.');
+      setToastMessage(err.response?.data?.message || err.response?.data?.detail || 'Inbox sync failed. Ensure Gmail or Outlook is connected in Integrations.');
     } finally {
       setSyncing(false);
     }
+  };
+
+  const handleReconnectGmail = () => {
+    googleAuthClient.connectGmailInbox({
+      onSuccess: async () => {
+        setToastMessage('Gmail reconnected successfully! Now syncing emails...');
+        await handleSyncInbox();
+      },
+      onError: (err) => {
+        setToastMessage(typeof err === 'string' ? err : 'Google OAuth reconnection failed or was closed.');
+      }
+    });
   };
 
   const handleDeleteOpp = async (id) => {
     if (!window.confirm('Are you sure you want to delete this opportunity?')) return;
     try {
       await opportunityService.delete(id);
-      setOpportunities((prev) => prev.filter((o) => (o.id || o._id) !== id));
+      setOpportunities((prev) => {
+        const next = prev.filter((o) => (o.id || o._id) !== id);
+        try {
+          localStorage.setItem('applyzen_cached_opportunities', JSON.stringify(next));
+        } catch {}
+        return next;
+      });
       setToastMessage('Opportunity deleted successfully.');
     } catch (err) {
       console.error(err);
@@ -165,7 +249,7 @@ export default function OpportunitiesPage() {
       setEmailText('');
       setShowIngestModal(false);
       setToastMessage('Career email processed and opportunity added!');
-      await fetchOpps();
+      await fetchOpps(true);
     } catch (err) {
       console.error(err);
       setToastMessage(err.response?.data?.detail || err.response?.data?.message || 'Failed to process email. Please verify format.');
@@ -202,23 +286,40 @@ export default function OpportunitiesPage() {
       matchesStipend = stipendStr.includes('1,25') || stipendStr.includes('1,00') || stipendStr.includes('year') || stipendStr.includes('18,') || stipendStr.includes('24,');
     }
 
-    // Date Filter Logic
+    // Date Filter Logic: handles exact custom From-To range and presets
     let matchesDate = true;
-    if (dateFilter !== 'All') {
-      const oppDate = new Date(o.email_received_at || o.email_timestamp || o.created_at);
-      const now = new Date();
-      if (dateFilter === 'Today') {
-        matchesDate = oppDate.toDateString() === now.toDateString();
-      } else if (dateFilter === '3days') {
-        matchesDate = oppDate >= new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
-      } else if (dateFilter === '7days') {
-        matchesDate = oppDate >= new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      } else if (dateFilter === '30days') {
-        matchesDate = oppDate >= new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const oppDateStr = o.email_received_at || o.email_timestamp || o.created_at;
+    if (oppDateStr) {
+      const oppDate = new Date(oppDateStr);
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        if (oppDate < start) matchesDate = false;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        if (oppDate > end) matchesDate = false;
+      }
+      if (!startDate && !endDate && dateFilter !== 'All' && dateFilter !== 'Custom') {
+        const now = new Date();
+        if (dateFilter === 'Today') {
+          matchesDate = oppDate.toDateString() === now.toDateString();
+        } else if (dateFilter === '3days') {
+          matchesDate = oppDate >= new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+        } else if (dateFilter === '7days') {
+          matchesDate = oppDate >= new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        } else if (dateFilter === '30days') {
+          matchesDate = oppDate >= new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        }
       }
     }
 
     return matchesSearch && matchesRole && matchesLocation && matchesStipend && matchesDate;
+  }).sort((a, b) => {
+    const timeA = new Date(a.email_received_at || a.email_timestamp || a.created_at || 0).getTime();
+    const timeB = new Date(b.email_received_at || b.email_timestamp || b.created_at || 0).getTime();
+    return timeB - timeA;
   });
 
   return (
@@ -263,12 +364,28 @@ export default function OpportunitiesPage() {
       </div>
 
       {toastMessage && (
-        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+        <div className={`p-3.5 rounded-xl border text-xs font-semibold flex items-center justify-between gap-3 ${
+          toastMessage.toLowerCase().includes('expired') || toastMessage.toLowerCase().includes('reconnect')
+            ? 'bg-amber-50 border-amber-300 text-amber-900'
+            : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+        }`}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <CheckCircle2 className={`w-4 h-4 shrink-0 ${
+              toastMessage.toLowerCase().includes('expired') || toastMessage.toLowerCase().includes('reconnect')
+                ? 'text-amber-600'
+                : 'text-emerald-600'
+            }`} />
             <span>{toastMessage}</span>
+            {(toastMessage.toLowerCase().includes('expired') || toastMessage.toLowerCase().includes('reconnect')) && (
+              <button
+                onClick={handleReconnectGmail}
+                className="ml-2 px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs shadow-xs cursor-pointer transition-colors"
+              >
+                Reconnect Gmail Now
+              </button>
+            )}
           </div>
-          <button onClick={() => setToastMessage('')} className="text-emerald-700 hover:text-emerald-900 text-xs">✕</button>
+          <button onClick={() => setToastMessage('')} className="text-gray-500 hover:text-gray-800 text-xs cursor-pointer">✕</button>
         </div>
       )}
 
@@ -332,11 +449,20 @@ export default function OpportunitiesPage() {
           </select>
         </div>
 
-        {/* Date Filter Dropdown */}
-        <div className="w-full md:w-36">
+        {/* Date Filter Dropdown with Custom Range Toggle */}
+        <div className="w-full md:w-44 flex items-center gap-1.5">
           <select
             value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setDateFilter(val);
+              if (val === 'Custom') {
+                setShowCustomDate(true);
+              } else if (val === 'All') {
+                setStartDate('');
+                setEndDate('');
+              }
+            }}
             className="w-full py-2 px-3 bg-gray-50/70 hover:bg-white text-gray-700 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#05603a] transition-all cursor-pointer font-medium"
           >
             <option value="All">All Dates</option>
@@ -344,17 +470,113 @@ export default function OpportunitiesPage() {
             <option value="3days">Last 3 Days</option>
             <option value="7days">Last 7 Days</option>
             <option value="30days">Last 30 Days</option>
+            <option value="Custom">Custom Range 📅</option>
           </select>
+
+          <button
+            onClick={() => setShowCustomDate(!showCustomDate)}
+            title="Toggle Date Range Picker"
+            className={`p-2 rounded-xl border transition-colors cursor-pointer shrink-0 ${
+              showCustomDate || startDate || endDate || dateFilter === 'Custom'
+                ? 'bg-emerald-50 text-[#05603a] border-emerald-300'
+                : 'bg-gray-50/70 text-gray-500 border-gray-200 hover:text-gray-900 hover:bg-white'
+            }`}
+          >
+            <Calendar className="w-4 h-4" />
+          </button>
         </div>
 
         {/* Refresh Action Button */}
         <button
-          onClick={fetchOpps}
+          onClick={() => fetchOpps(true)}
           title="Refresh opportunities"
           className="p-2.5 bg-gray-50 hover:bg-emerald-50 text-gray-600 hover:text-[#05603a] rounded-xl border border-gray-200 transition-colors shrink-0 flex items-center justify-center cursor-pointer shadow-2xs"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-[#05603a]' : ''}`} />
         </button>
+      </div>
+
+      {/* Interactive Custom Date Range Strip */}
+      {(showCustomDate || dateFilter === 'Custom' || startDate || endDate) && (
+        <div className="bg-emerald-50/50 p-3.5 rounded-2xl border border-emerald-200 flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in duration-150">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1.5 font-bold text-emerald-950">
+              <Calendar className="w-3.5 h-3.5 text-[#05603a]" />
+              <span>Select Date Range:</span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-gray-500 font-medium text-[11px]">From:</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setDateFilter('Custom');
+                }}
+                className="px-2.5 py-1.5 bg-white border border-gray-300 rounded-xl text-gray-900 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#05603a] shadow-2xs"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-gray-500 font-medium text-[11px]">To:</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setDateFilter('Custom');
+                }}
+                className="px-2.5 py-1.5 bg-white border border-gray-300 rounded-xl text-gray-900 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-[#05603a] shadow-2xs"
+              />
+            </div>
+
+            {(startDate || endDate) && (
+              <span className="text-[11px] font-semibold text-emerald-900 bg-white px-2 py-0.5 rounded-lg border border-emerald-200">
+                Active Range: {startDate || 'Earliest'} → {endDate || 'Latest'}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setStartDate('');
+                setEndDate('');
+                setDateFilter('All');
+                setShowCustomDate(false);
+              }}
+              className="px-3 py-1.5 rounded-xl bg-white hover:bg-gray-100 border border-gray-200 text-gray-700 hover:text-red-600 text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
+            >
+              Clear Range
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Filter Summary & Count */}
+      <div className="flex items-center justify-between text-xs text-gray-500 px-1">
+        <span>
+          Showing <strong className="text-gray-900 font-bold">{filtered.length}</strong> of{' '}
+          <strong className="text-gray-900">{opportunities.length}</strong> opportunities
+        </span>
+        {(search || roleFilter !== 'All' || stipendFilter !== 'All' || locationFilter !== 'All' || dateFilter !== 'All' || startDate || endDate) && (
+          <button
+            onClick={() => {
+              setSearch('');
+              setRoleFilter('All');
+              setStipendFilter('All');
+              setLocationFilter('All');
+              setDateFilter('All');
+              setStartDate('');
+              setEndDate('');
+              setShowCustomDate(false);
+            }}
+            className="text-xs text-[#05603a] font-semibold hover:underline cursor-pointer"
+          >
+            Reset All Filters
+          </button>
+        )}
       </div>
 
       {/* Opportunities List */}
@@ -438,27 +660,27 @@ export default function OpportunitiesPage() {
                   </div>
                 </div>
 
-                {/* Form Badge, View JD Button & Recruiter Source (all unified in one inline strip) */}
+                {/* Form Badge (Left of View JD), View JD Button & Recruiter Source (all unified in one inline strip) */}
                 <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                  {(opp.google_form_url || (opp.application_url && opp.application_url.includes('forms'))) && (
-                    <a
-                      href={opp.google_form_url || opp.application_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold border border-purple-200 text-[11px] hover:underline transition-colors shadow-2xs"
-                      title="Open attached Google Form in new tab"
+                  {(opp.google_form_url || (opp.application_url && (opp.application_url.includes('forms') || opp.application_url.includes('docs.google.com') || opp.application_url.includes('http')))) && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenFormWithAutofill(opp)}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-purple-600 hover:bg-purple-700 text-white font-semibold text-[10px] transition-colors cursor-pointer shadow-2xs"
+                      title="Open attached Google Form & launch Career Auto-fill Copilot"
                     >
-                      <span>📝 Google Form Link</span>
-                      <ExternalLink className="w-3 h-3 text-purple-600 shrink-0" />
-                    </a>
+                      <span className="text-[9.5px]">📝</span>
+                      <span>Google Form</span>
+                      <ExternalLink className="w-2.5 h-2.5 text-purple-200 shrink-0" />
+                    </button>
                   )}
 
                   <button
                     onClick={() => setSelectedJdOpp(opp)}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-red-50 hover:bg-red-100 text-red-700 font-bold border border-red-200 text-[11px] transition-colors cursor-pointer shadow-2xs"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-50 hover:bg-red-100 text-red-700 font-semibold border border-red-200 text-[10px] transition-colors cursor-pointer shadow-2xs"
                     title="Click to view full attached JD in PDF format"
                   >
-                    <span className="w-3.5 h-3.5 rounded bg-red-600 text-white flex items-center justify-center text-[7px] font-black shrink-0">
+                    <span className="w-3 h-3 rounded bg-red-600 text-white flex items-center justify-center text-[6.5px] font-black shrink-0">
                       PDF
                     </span>
                     <span>View JD</span>
@@ -509,36 +731,15 @@ export default function OpportunitiesPage() {
                     <Clock className="w-3.5 h-3.5 text-[#05603a] shrink-0" />
                     <span>Arrival: <strong className="font-semibold text-gray-900">{formatEmailDate(opp.email_received_at || opp.email_timestamp || opp.created_at) || 'Recent'}</strong></span>
                   </span>
-                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-medium ${
-                    getTimeLeftInfo(opp.deadline).isClosed
-                      ? 'bg-red-50/70 border-red-200 text-red-900'
-                      : 'bg-amber-50 border-amber-200 text-amber-900'
-                  }`}>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium">
                     <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                     <span>
                       Deadline: <strong className="font-semibold">{opp.deadline_raw || (opp.deadline ? formatEmailDate(opp.deadline) : 'Not given') || 'Not given'}</strong>
-                      {getTimeLeftInfo(opp.deadline).isClosed && (
-                        <span className="ml-1.5 px-1.5 py-0.2 rounded bg-red-100 text-red-700 font-bold text-[9px] uppercase border border-red-200">
-                          Closed (0 Left)
-                        </span>
-                      )}
                     </span>
                   </span>
                 </div>
 
                 <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
-                  {(opp.google_form_url || (opp.application_url && opp.application_url.includes('forms'))) && (
-                    <a
-                      href={opp.google_form_url || opp.application_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-colors shadow-2xs"
-                      title="Open Google Form directly"
-                    >
-                      <span>Open Form</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  )}
                   <Link
                     to={`/opportunities/${opp.id || opp._id}`}
                     className="inline-flex items-center gap-1 text-xs font-bold text-[#05603a] hover:underline"
@@ -558,6 +759,15 @@ export default function OpportunitiesPage() {
         opportunity={selectedJdOpp}
         isOpen={!!selectedJdOpp}
         onClose={() => setSelectedJdOpp(null)}
+        onOpenAutofill={handleOpenFormWithAutofill}
+      />
+
+      {/* Form Auto-fill Copilot Modal */}
+      <FormAutofillModal
+        isOpen={!!autofillOpp}
+        onClose={() => setAutofillOpp(null)}
+        opportunity={autofillOpp}
+        userProfile={userProfile}
       />
 
       {/* Manual Ingest Modal */}

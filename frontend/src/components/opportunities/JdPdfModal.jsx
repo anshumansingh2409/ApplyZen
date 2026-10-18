@@ -17,7 +17,7 @@ import {
   Briefcase
 } from 'lucide-react';
 
-export default function JdPdfModal({ opportunity, isOpen, onClose }) {
+export default function JdPdfModal({ opportunity, isOpen, onClose, onOpenAutofill }) {
   const [zoom, setZoom] = useState(100);
 
   if (!isOpen || !opportunity) return null;
@@ -47,16 +47,54 @@ export default function JdPdfModal({ opportunity, isOpen, onClose }) {
     }
   };
 
-  const isClosed = opportunity.deadline ? new Date(opportunity.deadline).getTime() <= Date.now() : false;
   const deadline = opportunity.deadline_raw
-    ? `${opportunity.deadline_raw}${isClosed ? ' (Closed • Time Left: 0)' : ''}`
+    ? opportunity.deadline_raw
     : opportunity.deadline
-    ? `${formattedDate(opportunity.deadline) || 'Not given'}${isClosed ? ' (Closed • Time Left: 0)' : ''}`
+    ? formattedDate(opportunity.deadline) || 'Not given'
     : 'Not given';
 
   const arrivalDate = formattedDate(opportunity.email_received_at || opportunity.email_timestamp || opportunity.created_at) || 'Recent';
   const formUrl = opportunity.google_form_url || opportunity.application_url;
   const refCode = `GU/T&P/2026/CPD-${String(opportunity.id || opportunity._id || '9241').slice(-5).toUpperCase()}`;
+
+  const cleanDescription = (raw, comp, targetRole) => {
+    if (!raw) return `${comp} campus recruitment drive for ${targetRole}.`;
+    let text = raw
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&ndash;/gi, '-')
+      .replace(/&mdash;/gi, '—')
+      .replace(/&amp;/gi, '&')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+      .replace(/\u00a0/g, ' ');
+
+    // Format section headers onto new lines if run together
+    text = text.replace(
+      /\b(Role\s+(?:and|&)\s+Responsibilities\s*:|Key\s+Responsibilities\s*:|Responsibilities\s*:|Full-Time\s+Opportunity\s*:|Eligibility\s+Criteria\s*:|Eligibility\s*:|Qualifications\s*:|Selection\s+Process\s*:|Technical\s+Skills\s*:|Key\s+Skills\s*:|Location\s*:|Duration\s*:|Stipend\s*:|Compensation\s*:|CTC\s*:|About\s+(?:the\s+)?Company\s*:|About\s+Us\s*:|Important\s+Note\s*:|Note\s*:)/gi,
+      '\n\n$1 '
+    );
+
+    const lines = text.split('\n');
+    const filtered = [];
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const low = trimmed.toLowerCase();
+      // Skip email headers
+      if (low.startsWith('subject:') || low.startsWith('from:') || low.startsWith('date:') || low.startsWith('to:') || low.startsWith('cc:') || low.startsWith('bcc:') || low.startsWith('message-id:')) continue;
+      // Skip salutations / greetings
+      if (low.startsWith('dear student') || low.startsWith('dear candidate') || low.startsWith('dear all') || low.startsWith('hello student') || low.startsWith('greetings from') || low.startsWith('hope this email') || low.startsWith('this is to inform') || low.startsWith('we are pleased')) continue;
+      // Stop on closing signatures or disclaimers
+      if (low.startsWith('thanks & regards') || low.startsWith('warm regards') || low.startsWith('best regards') || low.startsWith('regards,') || low.startsWith('disclaimer:') || low.startsWith('this email and any files') || low.startsWith('training & placement cell') || low.startsWith('dean career services')) break;
+      // Skip standalone forms links
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        if (trimmed.includes('forms.gle') || trimmed.includes('docs.google.com/forms')) continue;
+      }
+      filtered.push(trimmed);
+    }
+    const result = filtered.join('\n\n').trim();
+    return result || `${comp} campus recruitment specification for ${targetRole}.`;
+  };
 
   const handlePrint = () => {
     window.print();
@@ -77,7 +115,7 @@ Deadline:       ${deadline}
 Google Form:    ${formUrl || 'Attached in email'}
 ------------------------------------------------------------------------
 JOB DESCRIPTION & RECRUITER SPECIFICATION:
-${opportunity.job_description || 'Detailed specification as received in recruiter notification email.'}
+${cleanDescription(opportunity.job_description, company, role)}
 ========================================================================
 Verified by ApplyZen Placement Telemetry Engine
 ========================================================================`;
@@ -115,6 +153,26 @@ Verified by ApplyZen Placement Telemetry Engine
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {/* Google Form Link on Left of Actions (compact) */}
+            {formUrl && (
+              <button
+                onClick={() => {
+                  if (onOpenAutofill) {
+                    onOpenAutofill(opportunity);
+                  } else {
+                    window.open(formUrl, '_blank', 'noopener,noreferrer');
+                  }
+                }}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-semibold transition-all shadow-2xs cursor-pointer mr-1"
+                title="Open Google Form with Career Background Auto-fill"
+              >
+                <span className="text-[10px]">📝</span>
+                <span className="hidden sm:inline">Google Form</span>
+                <span className="sm:hidden">Form</span>
+                <ExternalLink className="w-2.5 h-2.5 shrink-0 text-purple-200" />
+              </button>
+            )}
+
             {/* Page Count */}
             <span className="hidden md:inline-block text-[11px] text-gray-400 bg-gray-800/80 px-2 py-1 rounded border border-gray-700">
               Page 1 / 1
@@ -252,20 +310,9 @@ Verified by ApplyZen Placement Telemetry Engine
               </h2>
 
               <div className="bg-gray-50/70 p-4 rounded-xl border border-gray-200 text-xs text-gray-800 space-y-2.5 leading-relaxed font-sans">
-                {opportunity.job_description ? (
-                  <p className="whitespace-pre-line text-gray-700">
-                    {opportunity.job_description.trim()}
-                  </p>
-                ) : (
-                  <>
-                    <p>
-                      <strong>{company}</strong> invites prospective engineering candidates of the graduating <strong>Batch of 2027</strong> to register for the campus recruitment process for the role of <strong>{role}</strong>.
-                    </p>
-                    <p>
-                      Selected candidates will be part of the software engineering, system development, or technical research team, working with modern technical stacks and real-world client platforms.
-                    </p>
-                  </>
-                )}
+                <p className="whitespace-pre-line text-gray-700">
+                  {cleanDescription(opportunity.job_description, company, role)}
+                </p>
               </div>
             </div>
 
@@ -358,15 +405,19 @@ Verified by ApplyZen Placement Telemetry Engine
                   </span>
                   <span className="text-[11px] text-purple-700 break-all font-mono mt-0.5 block">{formUrl}</span>
                 </div>
-                <a
-                  href={formUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl inline-flex items-center gap-1.5 shrink-0 shadow-xs"
+                <button
+                  onClick={() => {
+                    if (onOpenAutofill) {
+                      onOpenAutofill(opportunity);
+                    } else {
+                      window.open(formUrl, '_blank', 'noopener,noreferrer');
+                    }
+                  }}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl inline-flex items-center gap-1.5 shrink-0 shadow-xs cursor-pointer"
                 >
-                  <span>Open Registration Form</span>
+                  <span>Open Registration Form (Auto-fill)</span>
                   <ExternalLink className="w-3.5 h-3.5" />
-                </a>
+                </button>
               </div>
             )}
 

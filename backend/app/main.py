@@ -12,8 +12,10 @@ from app.core.logging import logger
 from app.core.exceptions import ApplyZenException
 from app.database.mongodb import db_manager, get_database
 from app.database.indexes import setup_indexes
+import asyncio
 from app.cache.redis import redis_manager
 from app.api.router import api_router
+from app.workers.email_worker import start_worker
 
 
 @asynccontextmanager
@@ -24,9 +26,14 @@ async def lifespan(app: FastAPI):
     await db_manager.connect_to_database()
     db = get_database()
     await setup_indexes(db)
+    
+    # Start Real-time Email Ingestion Worker in background
+    worker_task = asyncio.create_task(start_worker())
+    
     yield
     # Shutdown
     logger.info(f"Shutting down {settings.APP_NAME}...")
+    worker_task.cancel()
     await redis_manager.close()
     await db_manager.close_database_connection()
 

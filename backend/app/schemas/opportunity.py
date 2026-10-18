@@ -16,6 +16,7 @@ class OpportunityBase(BaseModel):
     application_url: Optional[str] = None
     job_id: Optional[str] = None
     deadline: Optional[datetime] = None
+    deadline_raw: Optional[str] = None
     location: Optional[str] = "Remote"
     work_mode: Optional[str] = "Full-time"  # Full-time, Internship, Contract
     salary: Optional[str] = None

@@ -11,10 +11,16 @@ class ApplicationRepository(BaseRepository):
     def __init__(self):
         super().__init__("applications")
 
-    async def list_by_user(self, user_id: str, status: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
-        query: Dict[str, Any] = {"user_id": user_id}
+    async def list_by_user(self, user_id: str, email: Optional[str] = None, status: Optional[str] = None, limit: int = 150) -> List[Dict[str, Any]]:
+        user_clauses = [{"user_id": user_id}]
+        if email:
+            user_clauses.append({"user_email": email})
+
         if status:
-            query["status"] = status
+            query = {"$and": [{"$or": user_clauses}, {"status": status}]}
+        else:
+            query = {"$or": user_clauses}
+
         return await self.list(query, limit=limit, sort_by="updated_at", sort_dir=-1)
 
     async def get_by_opportunity(self, user_id: str, opportunity_id: str) -> Optional[Dict[str, Any]]:

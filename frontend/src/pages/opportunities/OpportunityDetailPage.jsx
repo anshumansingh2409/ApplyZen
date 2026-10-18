@@ -19,8 +19,10 @@ import {
   Eye
 } from 'lucide-react';
 import { opportunityService } from '../../services/opportunity.service';
+import api from '../../services/api';
 import JdPdfModal from '../../components/opportunities/JdPdfModal';
 import CareerGroundTruthAutofill from '../../components/opportunities/CareerGroundTruthAutofill';
+import FormAutofillModal from '../../components/opportunities/FormAutofillModal';
 
 const formatEmailDate = (dateStr) => {
   if (!dateStr) return null;
@@ -78,6 +80,8 @@ export default function OpportunityDetailPage() {
   const [opportunity, setOpportunity] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showJdModal, setShowJdModal] = useState(false);
+  const [showAutofillModal, setShowAutofillModal] = useState(false);
+  const [userProfile, setUserProfile] = useState(null);
 
   useEffect(() => {
     const fetchOpp = async () => {
@@ -91,6 +95,16 @@ export default function OpportunityDetailPage() {
       }
     };
     fetchOpp();
+
+    const fetchProfile = async () => {
+      try {
+        const res = await api.get('/career-profile');
+        setUserProfile(res.data);
+      } catch (err) {
+        console.warn('Could not load user career profile for form autofill:', err);
+      }
+    };
+    fetchProfile();
   }, [id]);
 
   if (loading) {
@@ -187,33 +201,44 @@ export default function OpportunityDetailPage() {
             <span className="text-2xl font-black text-[#05603a]">{opportunity.match_score || 88}%</span>
           </div>
 
-          {formUrl ? (
-            <a
-              href={formUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-xs transition-colors"
-            >
-              <span>Open Google Form</span>
-              <ExternalLink className="w-4 h-4" />
-            </a>
-          ) : opportunity.application_id ? (
-            <Link
-              to={`/applications/${opportunity.application_id}`}
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#05603a] hover:bg-[#034a27] text-white text-xs font-bold shadow-xs transition-colors"
-            >
-              <span>View Application</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          ) : (
+          {/* Action Buttons: Google Form directly to the LEFT of View JD (compact height & width) */}
+          {formUrl && (
             <button
-              onClick={() => setShowJdModal(true)}
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+              type="button"
+              onClick={() => {
+                window.open(formUrl, '_blank', 'noopener,noreferrer');
+                setShowAutofillModal(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer group"
+              title="Open Google Form & launch Career Auto-fill Copilot"
             >
-              <span>View JD (PDF)</span>
-              <FileText className="w-4 h-4" />
+              <span className="text-xs group-hover:scale-110 transition-transform">📝</span>
+              <span>Google Form</span>
+              <ExternalLink className="w-3.5 h-3.5 text-purple-200 group-hover:text-white" />
             </button>
           )}
+
+          {opportunity.application_id && !formUrl && (
+            <Link
+              to={`/applications/${opportunity.application_id}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#05603a] hover:bg-[#034a27] text-white text-xs font-semibold shadow-2xs transition-colors"
+            >
+              <span>View Application</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setShowJdModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+            title="View complete official Job Description PDF"
+          >
+            <span className="w-3.5 h-3.5 rounded bg-white text-red-700 flex items-center justify-center text-[7px] font-black shrink-0">
+              PDF
+            </span>
+            <span>View JD (PDF)</span>
+          </button>
         </div>
       </div>
 
@@ -404,29 +429,15 @@ export default function OpportunityDetailPage() {
           </div>
 
           {/* Form Registration Deadline */}
-          {(() => {
-            const tl = getTimeLeftInfo(opportunity.deadline);
-            return (
-              <div className={`p-3 rounded-xl border ${
-                tl.isClosed ? 'bg-red-50/70 border-red-200' : 'bg-amber-50/60 border-amber-100/80'
-              }`}>
-                <span className="text-gray-400 block font-semibold text-[10px] uppercase tracking-wider">Form Registration Deadline</span>
-                <span className={`font-bold flex items-center gap-1.5 mt-1 ${
-                  tl.isClosed ? 'text-red-900' : 'text-amber-950'
-                }`}>
-                  <Calendar className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>
-                    {opportunity.deadline_raw || (opportunity.deadline ? formatEmailDate(opportunity.deadline) : 'Not given') || 'Not given'}
-                    {tl.isClosed && (
-                      <span className="ml-1.5 px-1.5 py-0.2 rounded bg-red-100 text-red-700 font-bold text-[9px] uppercase border border-red-200">
-                        Closed (0 Left)
-                      </span>
-                    )}
-                  </span>
-                </span>
-              </div>
-            );
-          })()}
+          <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-100/80">
+            <span className="text-gray-400 block font-semibold text-[10px] uppercase tracking-wider">Form Registration Deadline</span>
+            <span className="font-bold flex items-center gap-1.5 mt-1 text-amber-950">
+              <Calendar className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                {opportunity.deadline_raw || (opportunity.deadline ? formatEmailDate(opportunity.deadline) : 'Not given') || 'Not given'}
+              </span>
+            </span>
+          </div>
 
           {/* Recruiter / Sender */}
           <div className="p-3 rounded-xl bg-gray-50 border border-gray-100">
@@ -465,6 +476,21 @@ export default function OpportunityDetailPage() {
         opportunity={opportunity}
         isOpen={showJdModal}
         onClose={() => setShowJdModal(false)}
+        onOpenAutofill={() => {
+          setShowJdModal(false);
+          if (formUrl) {
+            window.open(formUrl, '_blank', 'noopener,noreferrer');
+          }
+          setShowAutofillModal(true);
+        }}
+      />
+
+      {/* Form Auto-fill Copilot Modal */}
+      <FormAutofillModal
+        isOpen={showAutofillModal}
+        onClose={() => setShowAutofillModal(false)}
+        opportunity={opportunity}
+        userProfile={userProfile}
       />
     </div>
   );

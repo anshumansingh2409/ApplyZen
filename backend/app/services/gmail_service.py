@@ -13,6 +13,7 @@ from email.header import decode_header
 import asyncio
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone, timedelta
+import html as pyhtml
 import httpx
 
 from app.core.config import settings
@@ -240,11 +241,68 @@ class GmailService:
 
         return access_token
 
+    def html_to_clean_text(self, html_content: str) -> str:
+        """
+        Converts rich HTML email bodies into beautifully structured plain text.
+        Preserves line breaks, paragraphs, bullet points, and hyperlinks while
+        decoding all HTML entities (&nbsp;, &ndash;, etc.).
+        """
+        if not html_content:
+            return ""
+
+        # 1. Strip script, style, and head blocks
+        text = re.sub(r"<(style|script|head|title)[\s\S]*?</\1>", "", html_content, flags=re.IGNORECASE)
+
+        # 2. Preserve hyperlinks cleanly: Text (URL) or URL
+        def _link_repl(m):
+            href = m.group(1).strip()
+            anchor_text = re.sub(r"<[^>]+>", "", m.group(2)).strip()
+            if not anchor_text or anchor_text.lower() in ["link", "here", "click here", "form", "google form", "apply", "register"]:
+                return f" {href} "
+            if href in anchor_text:
+                return f" {href} "
+            return f" {anchor_text} ({href}) "
+
+        text = re.sub(r'<a\s+[^>]*href=["\'](https?://[^"\']+)["\'][^>]*>(.*?)</a>', _link_repl, text, flags=re.IGNORECASE)
+
+        # 3. Convert line breaks and container tags to newlines
+        text = re.sub(r"<(br|hr)\s*/?>", "\n", text, flags=re.IGNORECASE)
+        text = re.sub(r"</?(p|div|tr|h1|h2|h3|h4|h5|h6|blockquote|section|article)[^>]*>", "\n", text, flags=re.IGNORECASE)
+
+        # 4. Convert list items to bullet points on new lines
+        text = re.sub(r"<li[^>]*>", "\n• ", text, flags=re.IGNORECASE)
+        text = re.sub(r"</li>", "\n", text, flags=re.IGNORECASE)
+
+        # 5. Convert table cells to clean separators
+        text = re.sub(r"</?(td|th)[^>]*>", "  |  ", text, flags=re.IGNORECASE)
+
+        # 6. Remove all remaining tags
+        text = re.sub(r"<[^>]+>", "", text)
+
+        # 7. Unescape all HTML entities (&nbsp; -> ' ', &ndash; -> '-', &amp; -> '&', etc.)
+        text = pyhtml.unescape(text)
+        text = text.replace('\xa0', ' ').replace('&nbsp;', ' ').replace('&ndash;', '-').replace('&mdash;', '—')
+
+        # 8. Clean up line formatting: normalize spaces on lines, preserve paragraphs
+        cleaned_lines = []
+        for line in text.splitlines():
+            l = line.strip()
+            if l:
+                l = re.sub(r"[ \t]+", " ", l)
+                cleaned_lines.append(l)
+            else:
+                if cleaned_lines and cleaned_lines[-1] != "":
+                    cleaned_lines.append("")
+
+        return "\n".join(cleaned_lines).strip()
+
     def _decode_message_payload(self, payload: dict) -> str:
         """
-        Decodes Gmail message payload into plain text while preserving hyperlinks.
+        Decodes Gmail message payload into plain text while preserving structure and hyperlinks.
+        Prefers rich HTML body converted cleanly to structured text to avoid duplication.
         """
-        texts = []
+        html_parts = []
+        plain_parts = []
         stack = [payload]
 
         while stack:
@@ -258,62 +316,33 @@ class GmailService:
                     padded = data_str + "=" * (-len(data_str) % 4)
                     raw_bytes = base64.urlsafe_b64decode(padded)
                     decoded_text = raw_bytes.decode("utf-8", errors="replace")
-                    if "html" in mime:
-                        clean = re.sub(r"<style[\s\S]*?</style>", "", decoded_text, flags=re.IGNORECASE)
-                        clean = re.sub(r"<script[\s\S]*?</script>", "", clean, flags=re.IGNORECASE)
-                        # Preserve href targets so Google Form links inside anchor tags are never lost
-                        clean = re.sub(r'<a\s+[^>]*href=["\'](https?://[^"\']+)["\'][^>]*>(.*?)</a>', r'\2 (\1)', clean, flags=re.IGNORECASE)
-                        clean = re.sub(r"<[^>]+>", " ", clean)
-                        clean = re.sub(r"\s+", " ", clean).strip()
-                        texts.append(clean)
+                    if "html" in mime or "<html" in decoded_text.lower() or "<div" in decoded_text.lower():
+                        clean = self.html_to_clean_text(decoded_text)
+                        if clean.strip():
+                            html_parts.append(clean.strip())
                     else:
-                        texts.append(decoded_text)
+                        clean_plain = pyhtml.unescape(decoded_text)
+                        clean_plain = clean_plain.replace('\xa0', ' ').replace('&nbsp;', ' ').replace('&ndash;', '-')
+                        if clean_plain.strip():
+                            plain_parts.append(clean_plain.strip())
                 except Exception as e:
                     logger.debug(f"Error decoding body part: {e}")
 
             for part in curr.get("parts", []):
                 stack.append(part)
 
-        return "\n\n".join(texts).strip()
+        if html_parts:
+            return "\n\n".join(html_parts).strip()
+        return "\n\n".join(plain_parts).strip()
 
     def _is_career_relevant(self, subject: str, body: str, from_addr: str = "") -> bool:
         """
-        Evaluates whether an email contains a Google Form application link for a career or campus recruitment opportunity.
-        Strictly excludes emails without Google Form links, promotional spam, OTPs, and newsletters.
+        Evaluates whether an email is a genuine career or campus recruitment opportunity
+        using the centralized OpportunityAgent classifier.
+        Strictly excludes non-career mail, promotional spam, OTPs, student surveys, etc.
         """
-        subj_lower = subject.lower()
-        combined = f"{subject}\n{body}".lower()
-        from_lower = from_addr.lower()
-
-        # 1. Negative Filters: Exclude marketing / promotional / transactional emails
-        promo_words = [
-            "verify your email", "password reset", "security alert",
-            "receipt", "invoice", "payment", "order confirmed", "newsletter",
-            "weekly digest", "one-time passcode", "otp", "your code is",
-            "webinar", "free masterclass", "course discount", "sale ends",
-            "upgrade your account", "terms of service", "privacy policy updated"
-        ]
-        if any(pw in subj_lower for pw in promo_words):
-            return False
-        if "welcome to" in subj_lower:
-            return False
-
-        promo_domains = [
-            "supabase.com", "cipherschools.com", "crio.do", "crio.in",
-            "accounts.google.com", "spotify.com", "netflix.com", "youtube.com",
-            "medium.com", "substack.com", "udemy.com", "coursera.com",
-            "resend.dev", "support@github.com", "noreply@github.com",
-            "mail.instagram.com", "facebookmail.com", "twitter.com", "x.com"
-        ]
-        if any(pd in from_lower for pd in promo_domains):
-            return False
-
-        # 2. Strict Google Form Requirement (user request: only detect emails with Google Form links)
-        google_form_url = opportunity_agent.extract_google_form_url(f"{subject}\n{body}")
-        if not google_form_url:
-            return False
-
-        return True
+        is_opp, _ = opportunity_agent.is_career_opportunity(text=body, subject=subject, from_addr=from_addr)
+        return is_opp
 
     def _decode_imap_header(self, raw_header: str) -> str:
         """Decodes MIME encoded header strings."""
@@ -333,139 +362,173 @@ class GmailService:
 
     async def _sync_emails_imap(self, user_id: str, conn: dict, max_results: int = 20) -> Dict[str, Any]:
         """
-        Scans real Gmail inbox using IMAP SSL.
-        Bypasses all Google Cloud OAuth verification gates!
+        Scans real Gmail inbox using IMAP SSL with fast header-first incremental sync.
+        Only downloads and parses newly arrived, un-ingested messages.
         """
         email_addr = conn.get("account_email")
         pwd = conn.get("app_password")
         db = get_database()
 
-        def fetch_messages_via_imap():
+        def fetch_unseen_messages_via_imap():
             try:
-                mail = imaplib.IMAP4_SSL("imap.gmail.com", 993)
+                mail = imaplib.IMAP4_SSL("imap.gmail.com", 993, timeout=15)
                 mail.login(email_addr, pwd)
                 mail.select("INBOX", readonly=True)
 
-                status, data = mail.search(None, 'ALL')
+                status, data = mail.uid('search', None, 'ALL')
                 if status != 'OK' or not data or not data[0]:
                     mail.close()
                     mail.logout()
                     return []
 
-                id_list = data[0].split()
-                # Check up to 80 recent messages for thorough coverage
-                fetch_limit = max(max_results, 80)
-                recent_ids = id_list[-fetch_limit:] if len(id_list) > fetch_limit else id_list
-                recent_ids.reverse()  # newest first
+                uid_list = data[0].split()
+                # Check recent messages (fast slice)
+                fetch_limit = max(max_results, 35)
+                recent_uids = uid_list[-fetch_limit:] if len(uid_list) > fetch_limit else uid_list
+                recent_uids.reverse()  # newest first
 
-                fetched_items = []
-                for msg_id_bytes in recent_ids:
-                    msg_id_str = msg_id_bytes.decode()
-                    f_status, f_data = mail.fetch(msg_id_bytes, '(RFC822)')
-                    if f_status == 'OK' and f_data and f_data[0]:
-                        raw_email_bytes = f_data[0][1]
-                        fetched_items.append((msg_id_str, raw_email_bytes))
+                fetched_headers = []
+                for uid_bytes in recent_uids:
+                    uid_str = uid_bytes.decode()
+                    # 1. Fetch only light headers first (takes ~5ms per message)
+                    h_status, h_data = mail.uid('fetch', uid_bytes, '(BODY.PEEK[HEADER.FIELDS (MESSAGE-ID SUBJECT FROM DATE)])')
+                    if h_status == 'OK' and h_data and h_data[0]:
+                        raw_header_bytes = h_data[0][1]
+                        parsed_hdr = pyemail.message_from_bytes(raw_header_bytes)
+                        msg_id = (parsed_hdr.get("Message-ID") or f"imap_uid_{uid_str}").strip().strip("<>")
+                        fetched_headers.append((uid_bytes, msg_id, raw_header_bytes))
 
                 mail.close()
                 mail.logout()
-                return fetched_items
+                return fetched_headers
             except Exception as e:
-                logger.error(f"[IMAP] Error fetching emails: {e}")
+                logger.error(f"[IMAP] Error fetching email headers: {e}")
                 return []
 
-        raw_items = await asyncio.to_thread(fetch_messages_via_imap)
-        logger.info(f"[GmailService-IMAP] Retrieved {len(raw_items)} recent email messages for {email_addr}")
+        header_items = await asyncio.to_thread(fetch_unseen_messages_via_imap)
+        logger.info(f"[GmailService-IMAP] Checked {len(header_items)} recent headers for {email_addr}")
+
+        # Filter out already ingested messages before downloading full body
+        needed_uids = []
+        for uid_bytes, msg_id, raw_header_bytes in header_items:
+            already = await db.ingested_emails.find_one({
+                "user_id": user_id,
+                "$or": [
+                    {"message_id": msg_id},
+                    {"message_id": f"imap_{uid_bytes.decode()}"}
+                ]
+            })
+            if not already:
+                needed_uids.append((uid_bytes, msg_id))
 
         scanned_count = 0
         synced_count = 0
 
-        for msg_id, raw_bytes in raw_items:
-            # Check deduplication
-            already_ingested = await db.ingested_emails.find_one({"user_id": user_id, "message_id": f"imap_{msg_id}"})
-            if already_ingested:
-                continue
+        if needed_uids:
+            logger.info(f"[GmailService-IMAP] Downloading {len(needed_uids)} new unseen messages...")
 
-            try:
-                msg = pyemail.message_from_bytes(raw_bytes)
-                scanned_count += 1
+            def download_full_bodies(uids_to_fetch):
+                results = []
+                try:
+                    mail = imaplib.IMAP4_SSL("imap.gmail.com", 993, timeout=15)
+                    mail.login(email_addr, pwd)
+                    mail.select("INBOX", readonly=True)
 
-                subject = self._decode_imap_header(msg.get("Subject", "Career Opportunity"))
-                from_header = self._decode_imap_header(msg.get("From", "recruiter@company.com"))
-                date_header = msg.get("Date", datetime.now(timezone.utc).isoformat())
+                    for u_bytes, m_id in uids_to_fetch:
+                        f_status, f_data = mail.uid('fetch', u_bytes, '(RFC822)')
+                        if f_status == 'OK' and f_data and f_data[0]:
+                            results.append((m_id, f_data[0][1]))
 
-                # Extract text body
-                body_parts = []
-                if msg.is_multipart():
-                    for part in msg.walk():
-                        content_type = part.get_content_type()
-                        content_disp = str(part.get("Content-Disposition"))
-                        if "attachment" not in content_disp:
-                            payload = part.get_payload(decode=True)
-                            if payload:
-                                text_chunk = payload.decode(part.get_content_charset() or "utf-8", errors="replace")
-                                if content_type == "text/html":
-                                    clean_chunk = re.sub(r"<style[\s\S]*?</style>", "", text_chunk, flags=re.IGNORECASE)
-                                    clean_chunk = re.sub(r"<script[\s\S]*?</script>", "", clean_chunk, flags=re.IGNORECASE)
-                                    clean_chunk = re.sub(r'<a\s+[^>]*href=["\'](https?://[^"\']+)["\'][^>]*>(.*?)</a>', r'\2 (\1)', clean_chunk, flags=re.IGNORECASE)
-                                    clean_chunk = re.sub(r"<[^>]+>", " ", clean_chunk)
-                                    clean_chunk = re.sub(r"\s+", " ", clean_chunk).strip()
-                                    body_parts.append(clean_chunk)
-                                else:
-                                    body_parts.append(text_chunk)
-                else:
-                    payload = msg.get_payload(decode=True)
-                    if payload:
-                        body_parts.append(payload.decode(msg.get_content_charset() or "utf-8", errors="replace"))
+                    mail.close()
+                    mail.logout()
+                except Exception as ex:
+                    logger.error(f"[IMAP] Error downloading full bodies: {ex}")
+                return results
 
-                body_text = "\n\n".join(body_parts).strip()
+            downloaded_items = await asyncio.to_thread(download_full_bodies, needed_uids)
 
-                if not self._is_career_relevant(subject, body_text, from_header):
+            for msg_id, raw_bytes in downloaded_items:
+                try:
+                    msg = pyemail.message_from_bytes(raw_bytes)
+                    scanned_count += 1
+
+                    subject = self._decode_imap_header(msg.get("Subject", "Career Opportunity"))
+                    from_header = self._decode_imap_header(msg.get("From", "recruiter@company.com"))
+                    date_header = msg.get("Date", datetime.now(timezone.utc).isoformat())
+
+                    # Extract text body
+                    body_parts = []
+                    if msg.is_multipart():
+                        for part in msg.walk():
+                            content_type = part.get_content_type()
+                            content_disp = str(part.get("Content-Disposition"))
+                            if "attachment" not in content_disp:
+                                payload = part.get_payload(decode=True)
+                                if payload:
+                                    text_chunk = payload.decode(part.get_content_charset() or "utf-8", errors="replace")
+                                    if content_type == "text/html":
+                                        clean_chunk = self.html_to_clean_text(text_chunk)
+                                        body_parts.append(clean_chunk)
+                                    else:
+                                        body_parts.append(pyhtml.unescape(text_chunk))
+                    else:
+                        payload = msg.get_payload(decode=True)
+                        if payload:
+                            raw_decoded = payload.decode(msg.get_content_charset() or "utf-8", errors="replace")
+                            if "html" in msg.get_content_type().lower():
+                                body_parts.append(self.html_to_clean_text(raw_decoded))
+                            else:
+                                body_parts.append(pyhtml.unescape(raw_decoded))
+
+                    body_text = "\n\n".join(body_parts).strip()
+
+                    # Strict opportunity relevance check
+                    if not self._is_career_relevant(subject, body_text, from_header):
+                        await db.ingested_emails.insert_one({
+                            "user_id": user_id,
+                            "provider": "gmail",
+                            "message_id": msg_id,
+                            "subject": subject,
+                            "from": from_header,
+                            "is_opportunity": False,
+                            "ingested_at": datetime.now(timezone.utc).isoformat()
+                        })
+                        continue
+
+                    # Parse true email arrival time
+                    try:
+                        parsed_dt = pyemail.utils.parsedate_to_datetime(date_header)
+                        received_at_iso = parsed_dt.astimezone(timezone.utc).isoformat()
+                    except Exception:
+                        received_at_iso = datetime.now(timezone.utc).isoformat()
+
+                    full_email_text = f"Subject: {subject}\nFrom: {from_header}\nDate: {date_header}\n\n{body_text}"
+                    process_res = await career_orchestrator.process_email_opportunity(
+                        user_id=user_id,
+                        email_content=full_email_text,
+                        source_email=from_header,
+                        provider_message_id=msg_id,
+                        email_received_at=received_at_iso,
+                        connected_account=email_addr,
+                        provider="gmail"
+                    )
+
                     await db.ingested_emails.insert_one({
                         "user_id": user_id,
                         "provider": "gmail",
-                        "message_id": f"imap_{msg_id}",
+                        "message_id": msg_id,
                         "subject": subject,
                         "from": from_header,
-                        "is_opportunity": False,
+                        "is_opportunity": True,
+                        "opportunity_id": process_res.get("opportunity_id"),
                         "ingested_at": datetime.now(timezone.utc).isoformat()
                     })
-                    continue
 
-                # Parse true email arrival time from IMAP Date header
-                try:
-                    parsed_dt = pyemail.utils.parsedate_to_datetime(date_header)
-                    received_at_iso = parsed_dt.astimezone(timezone.utc).isoformat()
-                except Exception:
-                    received_at_iso = datetime.now(timezone.utc).isoformat()
+                    if process_res.get("status") != "duplicate_skipped":
+                        synced_count += 1
 
-                full_email_text = f"Subject: {subject}\nFrom: {from_header}\nDate: {date_header}\n\n{body_text}"
-                process_res = await career_orchestrator.process_email_opportunity(
-                    user_id=user_id,
-                    email_content=full_email_text,
-                    source_email=from_header,
-                    provider_message_id=f"imap_{msg_id}",
-                    email_received_at=received_at_iso,
-                    connected_account=email_addr,
-                    provider="gmail"
-                )
-
-                await db.ingested_emails.insert_one({
-                    "user_id": user_id,
-                    "provider": "gmail",
-                    "message_id": f"imap_{msg_id}",
-                    "subject": subject,
-                    "from": from_header,
-                    "is_opportunity": True,
-                    "opportunity_id": process_res.get("opportunity_id"),
-                    "ingested_at": datetime.now(timezone.utc).isoformat()
-                })
-
-                if process_res.get("status") != "duplicate_skipped":
-                    synced_count += 1
-
-            except Exception as e:
-                logger.error(f"[GmailService-IMAP] Error parsing message {msg_id}: {e}")
-
+                except Exception as e:
+                    logger.error(f"[GmailService-IMAP] Error parsing message {msg_id}: {e}")
         now_iso = datetime.now(timezone.utc).isoformat()
         await db.oauth_connections.update_one(
             {"_id": conn["_id"]},
@@ -519,8 +582,9 @@ class GmailService:
             }
 
         headers = {"Authorization": f"Bearer {access_token}"}
-        google_form_keywords = '("forms.gle" OR "docs.google.com/forms" OR "forms.google.com" OR "google form" OR "google forms" OR forms.gle)'
-        final_query = query if query else google_form_keywords
+        # Search all recent inbox emails (last 30 days) to detect any job, internship, or recruitment notice
+        inbox_career_query = 'label:INBOX newer_than:30d'
+        final_query = query if query else inbox_career_query
         effective_max = max(max_results, 60)
 
         messages_list = []

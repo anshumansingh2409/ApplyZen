@@ -20,6 +20,11 @@ export const applicationService = {
     return res.data;
   },
 
+  async update(id, payload) {
+    const res = await api.put(`/applications/${id}`, payload);
+    return res.data;
+  },
+
   async triggerCaptcha(id) {
     const res = await api.post(`/applications/${id}/trigger-captcha`);
     return res.data;

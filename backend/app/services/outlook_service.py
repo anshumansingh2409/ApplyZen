@@ -12,12 +12,14 @@ from email.header import decode_header
 import re
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List, Optional
+import html as pyhtml
 import httpx
 
 from app.core.config import settings
 from app.core.logging import logger
 from app.database.mongodb import get_database
 from app.ai.agents.orchestrator_agent import career_orchestrator
+from app.ai.agents.opportunity_agent import opportunity_agent
 
 
 class OutlookService:
@@ -282,17 +284,65 @@ class OutlookService:
 
         return access_token
 
-    def _is_career_relevant(self, subject: str, body: str) -> bool:
-        """Evaluates whether an email appears to be career, job, hiring, interview, or assessment related."""
-        combined = f"{subject}\n{body}".lower()
-        signals = [
-            "job", "internship", "hiring", "interview", "offer",
-            "opportunity", "recruitment", "career", "applicant",
-            "application status", "assessment", "hackerrank", "codility",
-            "shortlisted", "referral", "opening", "invitation to apply",
-            "stipend", "salary", "ctc", "role:", "position:", "applyzen"
-        ]
-        return any(s in combined for s in signals)
+    def _is_career_relevant(self, subject: str, body: str, from_addr: str = "") -> bool:
+        """Evaluates whether an email is a genuine career opportunity using the centralized OpportunityAgent."""
+        is_opp, _ = opportunity_agent.is_career_opportunity(text=body, subject=subject, from_addr=from_addr)
+        return is_opp
+
+    def html_to_clean_text(self, html_content: str) -> str:
+        """
+        Converts rich HTML email bodies into beautifully structured plain text.
+        Preserves line breaks, paragraphs, bullet points, and hyperlinks while
+        decoding all HTML entities (&nbsp;, &ndash;, etc.).
+        """
+        if not html_content:
+            return ""
+
+        # 1. Strip script, style, and head blocks
+        text = re.sub(r"<(style|script|head|title)[\s\S]*?</\1>", "", html_content, flags=re.IGNORECASE)
+
+        # 2. Preserve hyperlinks cleanly: Text (URL) or URL
+        def _link_repl(m):
+            href = m.group(1).strip()
+            anchor_text = re.sub(r"<[^>]+>", "", m.group(2)).strip()
+            if not anchor_text or anchor_text.lower() in ["link", "here", "click here", "form", "google form", "apply", "register"]:
+                return f" {href} "
+            if href in anchor_text:
+                return f" {href} "
+            return f" {anchor_text} ({href}) "
+
+        text = re.sub(r'<a\s+[^>]*href=["\'](https?://[^"\']+)["\'][^>]*>(.*?)</a>', _link_repl, text, flags=re.IGNORECASE)
+
+        # 3. Convert line breaks and container tags to newlines
+        text = re.sub(r"<(br|hr)\s*/?>", "\n", text, flags=re.IGNORECASE)
+        text = re.sub(r"</?(p|div|tr|h1|h2|h3|h4|h5|h6|blockquote|section|article)[^>]*>", "\n", text, flags=re.IGNORECASE)
+
+        # 4. Convert list items to bullet points on new lines
+        text = re.sub(r"<li[^>]*>", "\n• ", text, flags=re.IGNORECASE)
+        text = re.sub(r"</li>", "\n", text, flags=re.IGNORECASE)
+
+        # 5. Convert table cells to clean separators
+        text = re.sub(r"</?(td|th)[^>]*>", "  |  ", text, flags=re.IGNORECASE)
+
+        # 6. Remove all remaining tags
+        text = re.sub(r"<[^>]+>", "", text)
+
+        # 7. Unescape all HTML entities (&nbsp; -> ' ', &ndash; -> '-', &amp; -> '&', etc.)
+        text = pyhtml.unescape(text)
+        text = text.replace('\xa0', ' ').replace('&nbsp;', ' ').replace('&ndash;', '-').replace('&mdash;', '—')
+
+        # 8. Clean up line formatting
+        cleaned_lines = []
+        for line in text.splitlines():
+            l = line.strip()
+            if l:
+                l = re.sub(r"[ \t]+", " ", l)
+                cleaned_lines.append(l)
+            else:
+                if cleaned_lines and cleaned_lines[-1] != "":
+                    cleaned_lines.append("")
+
+        return "\n".join(cleaned_lines).strip()
 
     def _decode_imap_header(self, raw_header: str) -> str:
         """Decodes MIME encoded header strings."""
@@ -379,23 +429,23 @@ class OutlookService:
                             payload = part.get_payload(decode=True)
                             if payload:
                                 charset = part.get_content_charset() or "utf-8"
-                                text_chunk = payload.decode(charset, errors="replace")
                                 if content_type == "text/html":
-                                    clean_chunk = re.sub(r"<style[\s\S]*?</style>", "", text_chunk, flags=re.IGNORECASE)
-                                    clean_chunk = re.sub(r"<script[\s\S]*?</script>", "", clean_chunk, flags=re.IGNORECASE)
-                                    clean_chunk = re.sub(r"<[^>]+>", " ", clean_chunk)
-                                    clean_chunk = re.sub(r"\s+", " ", clean_chunk).strip()
+                                    clean_chunk = self.html_to_clean_text(text_chunk)
                                     body_parts.append(clean_chunk)
                                 else:
-                                    body_parts.append(text_chunk)
+                                    body_parts.append(pyhtml.unescape(text_chunk))
                 else:
                     payload = msg.get_payload(decode=True)
                     if payload:
-                        body_parts.append(payload.decode(msg.get_content_charset() or "utf-8", errors="replace"))
+                        raw_chunk = payload.decode(msg.get_content_charset() or "utf-8", errors="replace")
+                        if "html" in msg.get_content_type().lower():
+                            body_parts.append(self.html_to_clean_text(raw_chunk))
+                        else:
+                            body_parts.append(pyhtml.unescape(raw_chunk))
 
                 body_text = "\n\n".join(body_parts).strip()
 
-                if not self._is_career_relevant(subject, body_text):
+                if not self._is_career_relevant(subject, body_text, from_header):
                     await db.ingested_emails.insert_one({
                         "user_id": user_id,
                         "provider": "outlook",
@@ -555,14 +605,12 @@ class OutlookService:
                 # Extract body text
                 body_content = msg.get("body", {}).get("content", "")
                 if msg.get("body", {}).get("contentType", "").lower() == "html":
-                    clean = re.sub(r"<style[\s\S]*?</style>", "", body_content, flags=re.IGNORECASE)
-                    clean = re.sub(r"<script[\s\S]*?</script>", "", clean, flags=re.IGNORECASE)
-                    clean = re.sub(r"<[^>]+>", " ", clean)
-                    body_text = re.sub(r"\s+", " ", clean).strip()
+                    body_text = self.html_to_clean_text(body_content)
                 else:
-                    body_text = body_content or msg.get("bodyPreview", "")
+                    plain_raw = body_content or msg.get("bodyPreview", "")
+                    body_text = pyhtml.unescape(plain_raw).replace('\xa0', ' ').replace('&nbsp;', ' ').replace('&ndash;', '-')
 
-                if not self._is_career_relevant(subject, body_text):
+                if not self._is_career_relevant(subject, body_text, from_header):
                     await db.ingested_emails.insert_one({
                         "user_id": user_id,
                         "provider": "outlook",

@@ -10,8 +10,18 @@ class OpportunityRepository(BaseRepository):
     def __init__(self):
         super().__init__("opportunities")
 
-    async def list_by_user(self, user_id: str, limit: int = 100) -> List[Dict[str, Any]]:
-        return await self.list({"user_id": user_id}, limit=limit, sort_by="created_at", sort_dir=-1)
+    async def list_by_user(self, user_id: str, limit: int = 200) -> List[Dict[str, Any]]:
+        cursor = self.collection.find({"user_id": user_id}).limit(limit)
+        items = await cursor.to_list(limit)
+
+        def get_sort_key(doc):
+            val = doc.get("email_received_at") or doc.get("email_timestamp") or doc.get("created_at")
+            if not val:
+                return ""
+            return str(val)
+
+        items.sort(key=get_sort_key, reverse=True)
+        return items
 
     async def find_duplicate(
         self,
@@ -41,12 +51,17 @@ class OpportunityRepository(BaseRepository):
                 return match
 
         # 4. Check company and role combination (case insensitive)
-        all_user_opps = await self.list({"user_id": user_id}, limit=500)
-        c_clean = company.lower().strip()
-        r_clean = role.lower().strip()
-        for opp in all_user_opps:
-            if opp.get("company", "").lower().strip() == c_clean and opp.get("role", "").lower().strip() == r_clean:
-                return opp
+        import re
+        c_clean = company.strip()
+        r_clean = role.strip()
+        if c_clean and r_clean:
+            match = await self.get_one({
+                "user_id": user_id,
+                "company": {"$regex": f"^{re.escape(c_clean)}$", "$options": "i"},
+                "role": {"$regex": f"^{re.escape(r_clean)}$", "$options": "i"}
+            })
+            if match:
+                return match
 
         return None
 

@@ -94,10 +94,43 @@ export const googleAuthClient = {
     }
 
     try {
+      // Preferred: initCodeClient for offline refresh_token access so background worker can sync indefinitely
+      if (typeof window.google.accounts.oauth2.initCodeClient === 'function') {
+        const codeClient = window.google.accounts.oauth2.initCodeClient({
+          client_id: clientId,
+          scope: 'https://www.googleapis.com/auth/gmail.readonly openid email profile',
+          ux_mode: 'popup',
+          callback: async (codeResponse) => {
+            if (codeResponse.error) {
+              onError?.(codeResponse.error_description || codeResponse.error);
+              return;
+            }
+            try {
+              const res = await api.post('/integrations/google/connect', {
+                code: codeResponse.code
+              });
+              onSuccess?.(res.data);
+            } catch (backendErr) {
+              onError?.(
+                backendErr.response?.data?.detail ||
+                backendErr.response?.data?.message ||
+                'Failed to link Gmail account with ApplyZen server.'
+              );
+            }
+          },
+          error_callback: (err) => {
+            onError?.(err?.message || 'Google OAuth prompt was closed or cancelled.');
+          }
+        });
+        codeClient.requestCode();
+        return;
+      }
+
+      // Fallback: initTokenClient
       const client = window.google.accounts.oauth2.initTokenClient({
         client_id: clientId,
         scope: 'https://www.googleapis.com/auth/gmail.readonly openid email profile',
-        prompt: 'select_account',
+        prompt: 'consent',
         callback: async (tokenResponse) => {
           if (tokenResponse.error) {
             onError?.(tokenResponse.error_description || tokenResponse.error);
@@ -122,7 +155,7 @@ export const googleAuthClient = {
         }
       });
 
-      client.requestAccessToken({ prompt: 'select_account' });
+      client.requestAccessToken({ prompt: 'consent' });
     } catch (err) {
       onError?.(err.message || 'Failed to initialize Google OAuth prompt.');
     }

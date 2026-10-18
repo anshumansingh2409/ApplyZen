@@ -8,7 +8,9 @@ export const resumeService = {
 
   async upload(formData) {
     const res = await api.post('/resumes', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: {
+        'Content-Type': undefined
+      }
     });
     return res.data;
   },
@@ -21,5 +23,9 @@ export const resumeService = {
   async delete(id) {
     const res = await api.delete(`/resumes/${id}`);
     return res.data;
+  },
+
+  getFileUrl(id) {
+    return `/api/v1/resumes/${id}/file`;
   }
 };

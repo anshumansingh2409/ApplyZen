@@ -63,8 +63,8 @@ async def poll_connected_inboxes():
         except Exception as e:
             logger.error(f"[EmailWorker] Error during periodic inbox poll: {e}")
 
-        # Poll every 2 minutes
-        await asyncio.sleep(120)
+        # Poll every 60 seconds for near real-time email ingestion
+        await asyncio.sleep(60)
 
 
 async def start_worker():
