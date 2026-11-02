@@ -91,12 +91,23 @@ export default function GoogleAuthModal({ isOpen, onClose, onConfigured }) {
 
           {/* Setup Guide */}
           <div className="mt-5 pt-4 border-t border-gray-100 text-xs text-gray-500 space-y-2">
-            <div className="font-semibold text-gray-700">How to get a Google Client ID:</div>
-            <ol className="list-decimal list-inside space-y-1 text-[11px] text-gray-600">
-              <li>Visit <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-blue-600 underline inline-flex items-center gap-0.5">Google Cloud Console <ExternalLink className="w-2.5 h-2.5" /></a></li>
-              <li>Create OAuth Client ID &rarr; Web application</li>
-              <li>Add Authorized JavaScript origin: <code className="bg-gray-100 px-1 rounded text-gray-800">http://localhost:5173</code></li>
-              <li>Copy Client ID and paste here.</li>
+            <div className="font-semibold text-gray-700">How to fix "origin_mismatch" in Google Console:</div>
+            <ol className="list-decimal list-inside space-y-1.5 text-[11px] text-gray-600">
+              <li>Visit <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-blue-600 underline inline-flex items-center gap-0.5 font-medium">Google Cloud Console <ExternalLink className="w-2.5 h-2.5" /></a></li>
+              <li>Open your OAuth 2.0 Client ID (Web application)</li>
+              <li>Under <strong>Authorized JavaScript origins</strong>, add:
+                <div className="mt-1 space-y-0.5 font-mono text-[10px] text-gray-800">
+                  <div className="bg-gray-100 px-1.5 py-0.5 rounded">http://localhost:5173</div>
+                  <div className="bg-gray-100 px-1.5 py-0.5 rounded">http://127.0.0.1:5173</div>
+                </div>
+              </li>
+              <li>Under <strong>Authorized redirect URIs</strong>, add:
+                <div className="mt-1 space-y-0.5 font-mono text-[10px] text-gray-800">
+                  <div className="bg-gray-100 px-1.5 py-0.5 rounded">http://localhost:5173/auth/callback/google</div>
+                  <div className="bg-gray-100 px-1.5 py-0.5 rounded">http://127.0.0.1:5173/auth/callback/google</div>
+                </div>
+              </li>
+              <li>Click <strong>Save</strong> and wait 1-2 minutes for Google to update.</li>
             </ol>
           </div>
         </div>

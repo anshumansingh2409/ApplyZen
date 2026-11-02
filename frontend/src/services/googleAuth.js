@@ -6,10 +6,16 @@ import { authService } from './auth.service';
  */
 export const googleAuthClient = {
   getClientId() {
+    const localId = localStorage.getItem('applyzen_google_client_id');
+    // Clear old deprecated client ID if stored in browser
+    if (localId && localId.includes('l99g3sr57q1u6182b3qmbd04ba9j3ggu')) {
+      localStorage.removeItem('applyzen_google_client_id');
+    }
+
     return (
       import.meta.env.VITE_GOOGLE_CLIENT_ID ||
       localStorage.getItem('applyzen_google_client_id') ||
-      '21011366721-l99g3sr57q1u6182b3qmbd04ba9j3ggu.apps.googleusercontent.com'
+      '21011366721-ogj4rr79stpsahrhsrqkc9806u74v6sj.apps.googleusercontent.com'
     );
   },
 
@@ -39,6 +45,10 @@ export const googleAuthClient = {
     if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) {
       onError?.('Google Identity Services SDK is loading. Please refresh the page and try again.');
       return;
+    }
+
+    if (import.meta.env.DEV) {
+      console.info(`[Google OAuth] Origin: ${window.location.origin} | Client ID: ${clientId}`);
     }
 
     try {

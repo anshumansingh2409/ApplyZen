@@ -12,7 +12,12 @@ class Settings(BaseSettings):
     PORT: int = 8000
 
     # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"]
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "https://applyzen-aqmq.onrender.com"
+    ]
 
     # Security & Auth
     JWT_SECRET: str = "applyzen_production_ready_jwt_secret_key_32_characters_minimum"

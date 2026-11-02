@@ -67,7 +67,7 @@ export default function SignupPage() {
         if (authResult?.user) {
           setAuthUser(authResult.user);
         }
-        window.location.href = '/dashboard';
+        navigate('/dashboard');
       },
       onError: (errMsg) => {
         setGoogleLoading(false);
@@ -91,7 +91,7 @@ export default function SignupPage() {
         if (authResult?.user) {
           setAuthUser(authResult.user);
         }
-        window.location.href = '/dashboard';
+        navigate('/dashboard');
       },
       onError: (errMsg) => {
         setMicrosoftLoading(false);

@@ -43,7 +43,10 @@ export default function App() {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/auth/callback" element={<OAuthCallbackPage />} />
+          <Route path="/auth/callback/google" element={<OAuthCallbackPage />} />
           <Route path="/auth/callback/microsoft" element={<OAuthCallbackPage />} />
+          <Route path="/integrations/callback/google" element={<OAuthCallbackPage />} />
+          <Route path="/integrations/callback/microsoft" element={<OAuthCallbackPage />} />
 
           {/* Authenticated Dashboard Routes */}
           <Route element={<DashboardLayout />}>

@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function OAuthCallbackPage() {
   const [status, setStatus] = useState('processing');
   const [errorMessage, setErrorMessage] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
     try {
@@ -42,7 +44,7 @@ export default function OAuthCallbackPage() {
           setTimeout(() => window.close(), 500);
         } else {
           // If not in a popup, redirect to dashboard
-          window.location.href = '/dashboard';
+          navigate('/dashboard');
         }
       } else {
         setStatus('error');
