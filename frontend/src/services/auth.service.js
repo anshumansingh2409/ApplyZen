@@ -74,7 +74,6 @@ export const authService = {
   logout() {
     localStorage.removeItem('applyzen_token');
     localStorage.removeItem('applyzen_user');
-    window.location.href = '/login';
   },
 
   getCurrentUser() {

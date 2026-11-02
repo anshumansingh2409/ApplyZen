@@ -78,20 +78,19 @@ export default function LandingPage() {
             {/* Action Buttons */}
             <div className="flex flex-wrap items-center gap-4 pt-2">
               <Link
-                to="/signup"
+                to="/login"
                 className="inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-xl bg-[#05603a] hover:bg-[#034a27] text-white font-semibold text-base shadow-md hover:shadow-lg transition-all"
               >
-                <span>Get Started Free</span>
+                <span>Login to Dashboard</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
 
-              <a
-                href="#demo"
+              <Link
+                to="/signup"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-white border border-gray-200 hover:border-gray-300 text-gray-800 font-semibold text-base shadow-xs hover:bg-gray-50 transition-all"
               >
-                <span>Watch Demo</span>
-                <Play className="w-3.5 h-3.5 fill-current text-gray-900" />
-              </a>
+                <span>Create Free Account</span>
+              </Link>
             </div>
 
             {/* Key trust bullets */}

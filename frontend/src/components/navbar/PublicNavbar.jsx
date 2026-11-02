@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 export default function PublicNavbar() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
 
   return (
@@ -27,29 +27,30 @@ export default function PublicNavbar() {
         </nav>
 
         {/* Auth CTA Buttons */}
-        <div className="flex items-center gap-5">
-          {isAuthenticated ? (
-            <Link
-              to="/dashboard"
-              className="inline-flex items-center justify-center px-5 py-2.5 rounded-full bg-[#05603a] hover:bg-[#034a27] text-white text-sm font-semibold shadow-sm transition-all hover:shadow"
+        <div className="flex items-center gap-3 sm:gap-4">
+          <Link
+            to="/login"
+            className="text-[15px] font-semibold text-gray-700 hover:text-[#05603a] transition-colors px-2 py-1"
+          >
+            Login
+          </Link>
+          <Link
+            to="/signup"
+            className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-[#05603a] hover:bg-[#034a27] text-white text-sm font-semibold shadow-xs transition-all hover:shadow"
+          >
+            Get Started Free
+          </Link>
+          {isAuthenticated && (
+            <button
+              onClick={() => {
+                logout();
+                navigate('/login');
+              }}
+              className="text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 px-2.5 py-1.5 rounded-lg border border-red-200 transition-all cursor-pointer"
+              title="Sign out of current account to test fresh login"
             >
-              Go to Dashboard
-            </Link>
-          ) : (
-            <>
-              <Link
-                to="/login"
-                className="text-[15px] font-medium text-gray-700 hover:text-[#05603a] transition-colors"
-              >
-                Sign in
-              </Link>
-              <Link
-                to="/signup"
-                className="inline-flex items-center justify-center px-5 py-2.5 rounded-full bg-[#05603a] hover:bg-[#034a27] text-white text-sm font-semibold shadow-sm transition-all hover:shadow"
-              >
-                Get Started Free
-              </Link>
-            </>
+              Sign Out
+            </button>
           )}
         </div>
       </div>
