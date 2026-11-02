@@ -21,6 +21,8 @@ from app.database.mongodb import get_database
 from app.ai.agents.orchestrator_agent import career_orchestrator
 from app.ai.agents.opportunity_agent import opportunity_agent
 
+OCTOBER_CUTOFF_DATE = datetime(2026, 10, 1, 0, 0, 0, tzinfo=timezone.utc)
+
 
 class OutlookService:
     GRAPH_API_BASE = "https://graph.microsoft.com/v1.0"
@@ -210,18 +212,11 @@ class OutlookService:
         return await self.connect_with_token(user_id, access_token, refresh_token)
 
     async def disconnect(self, user_id: str) -> Dict[str, Any]:
-        """Disconnects Outlook integration and deactivates tokens."""
+        """Disconnects Outlook integration and deactivates tokens strictly for user."""
         db = get_database()
-        user = await db.users.find_one({"_id": user_id})
-        user_email = (user.get("email") or "").lower().strip() if user else ""
-
-        or_conditions = [{"user_id": user_id}]
-        if user_email:
-            or_conditions.append({"account_email": user_email})
-
         res = await db.oauth_connections.delete_many({
             "provider": "outlook",
-            "$or": or_conditions
+            "user_id": user_id
         })
         logger.info(f"Disconnected Outlook for user {user_id}, deleted {res.deleted_count} connection docs")
         return {"success": True, "provider": "outlook", "connected": False, "disconnected": res.deleted_count > 0}
@@ -377,7 +372,9 @@ class OutlookService:
             mail.login(email_addr, password)
             mail.select("INBOX", readonly=True)
 
-            status, search_data = mail.search(None, "ALL")
+            status, search_data = mail.search(None, '(SINCE "01-Oct-2026")')
+            if status != "OK" or not search_data or not search_data[0]:
+                status, search_data = mail.search(None, "ALL")
             if status != "OK" or not search_data or not search_data[0]:
                 mail.close()
                 mail.logout()
@@ -429,6 +426,7 @@ class OutlookService:
                             payload = part.get_payload(decode=True)
                             if payload:
                                 charset = part.get_content_charset() or "utf-8"
+                                text_chunk = payload.decode(charset, errors="replace")
                                 if content_type == "text/html":
                                     clean_chunk = self.html_to_clean_text(text_chunk)
                                     body_parts.append(clean_chunk)
@@ -458,11 +456,16 @@ class OutlookService:
                     continue
 
                 # Parse email date
+                parsed_dt = None
                 try:
                     parsed_dt = email.utils.parsedate_to_datetime(date_header)
                     received_at_iso = parsed_dt.astimezone(timezone.utc).isoformat()
                 except Exception:
                     received_at_iso = datetime.now(timezone.utc).isoformat()
+
+                if parsed_dt and parsed_dt.astimezone(timezone.utc) < OCTOBER_CUTOFF_DATE:
+                    logger.info(f"[OutlookService-IMAP] Skipping pre-October 2026 email: {date_header}")
+                    continue
 
                 full_email_text = f"Subject: {subject}\nFrom: {from_header}\nDate: {date_header}\n\n{body_text}"
                 process_res = await career_orchestrator.process_email_opportunity(
@@ -560,7 +563,8 @@ class OutlookService:
                 params = {
                     "$top": str(max_results),
                     "$select": "id,subject,bodyPreview,body,from,receivedDateTime",
-                    "$orderby": "receivedDateTime desc"
+                    "$orderby": "receivedDateTime desc",
+                    "$filter": "receivedDateTime ge 2026-10-01T00:00:00Z"
                 }
                 resp = await client.get(graph_url, headers=headers, params=params)
                 if resp.status_code == 200:
@@ -623,6 +627,12 @@ class OutlookService:
                     continue
 
                 received_at_iso = msg.get("receivedDateTime") or datetime.now(timezone.utc).isoformat()
+                try:
+                    dt = datetime.fromisoformat(received_at_iso.replace("Z", "+00:00"))
+                    if dt < OCTOBER_CUTOFF_DATE:
+                        continue
+                except Exception:
+                    pass
                 full_email_text = f"Subject: {subject}\nFrom: {from_header}\nDate: {date_header}\n\n{body_text}"
                 process_res = await career_orchestrator.process_email_opportunity(
                     user_id=user_id,

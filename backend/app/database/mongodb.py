@@ -6,6 +6,7 @@ Zero local disk storage: All data is stored in the MongoDB server only.
 import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any, List
+import certifi
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from app.core.config import settings
 from app.core.logging import logger
@@ -146,6 +147,15 @@ class InMemoryCollection:
             deleted_count = 0
         return NoDeleteResult()
 
+    async def delete_many(self, query: Dict[str, Any]):
+        before_count = len(self.docs)
+        self.docs = [doc for doc in self.docs if not self._matches(doc, query)]
+        deleted = before_count - len(self.docs)
+        class DeleteManyResult:
+            def __init__(self, count):
+                self.deleted_count = count
+        return DeleteManyResult(deleted)
+
     async def count_documents(self, query: Dict[str, Any]):
         res = await self.find(query).to_list(None)
         return len(res)
@@ -184,6 +194,7 @@ class MongoDBManager:
             if "mongodb+srv://" in settings.MONGODB_URI:
                 client_kwargs["tls"] = True
                 client_kwargs["tlsAllowInvalidCertificates"] = False
+                client_kwargs["tlsCAFile"] = certifi.where()
 
             self.client = AsyncIOMotorClient(
                 settings.MONGODB_URI,

@@ -141,6 +141,15 @@ export default function OpportunitiesPage() {
 
   useEffect(() => {
     fetchOpps();
+
+    // Trigger instant background sync on page mount
+    opportunityService.syncEmails('all').then(() => fetchOpps(false)).catch(() => {});
+
+    // Real-time polling every 5 seconds so newly arrived emails reflect within seconds
+    const interval = setInterval(() => {
+      fetchOpps(false);
+    }, 5000);
+
     const fetchProfile = async () => {
       try {
         const res = await api.get('/career-profile');
@@ -150,6 +159,8 @@ export default function OpportunitiesPage() {
       }
     };
     fetchProfile();
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleOpenFormWithAutofill = (opp) => {

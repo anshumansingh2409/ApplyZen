@@ -37,6 +37,10 @@ export default function DashboardPage() {
       }
     };
     fetchData();
+
+    // Poll every 6 seconds for real-time dashboard telemetry
+    const interval = setInterval(fetchData, 6000);
+    return () => clearInterval(interval);
   }, []);
 
   const actionRequiredApps = applications.filter(

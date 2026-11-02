@@ -44,7 +44,6 @@ async def poll_connected_inboxes():
             }).to_list(100)
 
             if active_conns:
-                logger.info(f"[EmailWorker] Periodic scan: Checking {len(active_conns)} active connected inboxes...")
                 for conn in active_conns:
                     provider = conn.get("provider", "gmail")
                     account = conn.get("account_email", "unknown")
@@ -57,14 +56,14 @@ async def poll_connected_inboxes():
                             continue
 
                         if res.get("synced_count", 0) > 0:
-                            logger.info(f"✅ [EmailWorker] Ingested {res['synced_count']} new opportunities from {provider} ({account})")
+                            logger.info(f"⚡ [EmailWorker-Realtime] Ingested {res['synced_count']} new opportunities from {provider} ({account}) within seconds!")
                     except Exception as conn_err:
                         logger.error(f"[EmailWorker] Error syncing {provider} inbox {account}: {conn_err}")
         except Exception as e:
             logger.error(f"[EmailWorker] Error during periodic inbox poll: {e}")
 
-        # Poll every 60 seconds for near real-time email ingestion
-        await asyncio.sleep(60)
+        # Poll every 5 seconds for sub-minute real-time email detection and processing
+        await asyncio.sleep(5)
 
 
 async def start_worker():

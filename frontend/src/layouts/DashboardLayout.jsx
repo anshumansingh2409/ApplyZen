@@ -26,10 +26,12 @@ export default function DashboardLayout() {
   const [syncing, setSyncing] = React.useState(false);
   const [syncSuccess, setSyncSuccess] = React.useState(false);
 
+  const [syncToast, setSyncToast] = useState(null);
+
   // Integration state
   const [integrationStatus, setIntegrationStatus] = useState({
-    gmail: { connected: true },
-    outlook: { connected: true }
+    gmail: { connected: false },
+    outlook: { connected: false }
   });
 
   // Dropdown states
@@ -118,16 +120,39 @@ export default function DashboardLayout() {
   }
 
   const handleSyncEmails = async () => {
+    const isGmailConnected = integrationStatus?.gmail?.connected;
+    const isOutlookConnected = integrationStatus?.outlook?.connected;
+
+    if (!isGmailConnected && !isOutlookConnected) {
+      navigate('/integrations');
+      return;
+    }
+
     setSyncing(true);
+    setSyncToast(null);
     try {
-      await opportunityService.syncDemoEmails();
+      const provider = isGmailConnected ? 'gmail' : 'outlook';
+      const res = await opportunityService.syncEmails(provider);
+      if (res?.connected === false) {
+        navigate('/integrations');
+        return;
+      }
       setSyncSuccess(true);
+      const count = res?.synced_count ?? 0;
+      setSyncToast(
+        count > 0
+          ? `Ingested ${count} new opportunities from ${res?.account_email || 'inbox'}!`
+          : `Scan complete: No new career emails found.`
+      );
       setTimeout(() => {
         setSyncSuccess(false);
-        window.location.reload();
-      }, 1200);
+      }, 2500);
+      setTimeout(() => {
+        setSyncToast(null);
+      }, 5000);
     } catch (err) {
-      console.error(err);
+      console.error('Error syncing emails:', err);
+      navigate('/integrations');
     } finally {
       setSyncing(false);
     }
@@ -163,9 +188,11 @@ export default function DashboardLayout() {
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-white transition-colors"
                 title="Google Gmail Integration"
               >
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className={`w-2 h-2 rounded-full ${integrationStatus?.gmail?.connected ? 'bg-emerald-500 animate-pulse' : 'bg-gray-300'}`}></span>
                 <span>Gmail</span>
-                <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded font-bold">Synced</span>
+                <span className={`text-[10px] px-1 py-0.2 rounded font-bold ${integrationStatus?.gmail?.connected ? 'text-emerald-700 bg-emerald-50' : 'text-gray-500 bg-gray-100'}`}>
+                  {integrationStatus?.gmail?.connected ? 'Connected' : 'Connect'}
+                </span>
               </Link>
               <span className="text-gray-300">|</span>
               <Link
@@ -173,9 +200,11 @@ export default function DashboardLayout() {
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-white transition-colors"
                 title="Microsoft Outlook Integration"
               >
-                <span className={`w-2 h-2 rounded-full ${integrationStatus?.outlook?.connected ? 'bg-emerald-500' : 'bg-blue-500'}`}></span>
+                <span className={`w-2 h-2 rounded-full ${integrationStatus?.outlook?.connected ? 'bg-emerald-500 animate-pulse' : 'bg-gray-300'}`}></span>
                 <span>Outlook</span>
-                <span className="text-[10px] text-blue-700 bg-blue-50 px-1 py-0.2 rounded font-bold">Active</span>
+                <span className={`text-[10px] px-1 py-0.2 rounded font-bold ${integrationStatus?.outlook?.connected ? 'text-blue-700 bg-blue-50' : 'text-gray-500 bg-gray-100'}`}>
+                  {integrationStatus?.outlook?.connected ? 'Connected' : 'Connect'}
+                </span>
               </Link>
             </div>
 
@@ -187,7 +216,7 @@ export default function DashboardLayout() {
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">
-                {syncSuccess ? 'Synced New Emails!' : syncing ? 'Scanning Inboxes...' : 'Sync Career Emails'}
+                {syncSuccess ? 'Synced Successfully!' : syncing ? 'Scanning Inboxes...' : 'Sync Career Emails'}
               </span>
             </button>
 
@@ -373,6 +402,22 @@ export default function DashboardLayout() {
             </div>
           </div>
         </header>
+
+        {/* Sync Toast Notification Banner */}
+        {syncToast && (
+          <div className="bg-[#05603a] text-white px-6 py-2.5 text-xs font-semibold flex items-center justify-between shadow-xs transition-all animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-300" />
+              <span>{syncToast}</span>
+            </div>
+            <button
+              onClick={() => setSyncToast(null)}
+              className="text-white/80 hover:text-white cursor-pointer text-base leading-none px-1"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         {/* Main Content Area */}
         <main className="flex-1 p-6 sm:p-8 overflow-y-auto">

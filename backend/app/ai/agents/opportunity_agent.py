@@ -10,6 +10,125 @@ import html as pyhtml
 from datetime import datetime, timedelta, timezone
 
 
+class CompanyValidator:
+    JUNK_KEYWORDS = {
+        "link", "important", "notice", "registration", "registrations", "required", "asap",
+        "update", "updates", "reminder", "timeline", "timelines", "schedule", "revised",
+        "test", "assessment", "online assessment", "exam", "examination", "mte", "ete",
+        "marks", "submission", "pending", "urgent", "advisory", "disclosures", "alert", "alerts",
+        "survey", "feedback", "circular", "rewards", "reward", "win", "winner", "prize",
+        "cashback", "credited", "debited", "transaction", "inr", "rs.", "balance",
+        "otp", "verify", "verification", "password", "security", "login",
+        "b.tech", "mca", "b.e.", "m.tech", "cse", "it", "batch", "branches", "all branches",
+        "student", "students", "faculty", "dear", "greetings", "resilient", "inform",
+        "internship +", "package", "stipend", "nomination", "gender", "female", "male",
+        "hiring organization", "leading organization", "top company", "various companies", "it company",
+        "campus", "college", "university", "galgotias", "gcet", "scse", "soe", "gimt",
+        "tpo", "t&p", "crc", "placement cell", "career services", "training & placement", "department",
+        "dr.", "prof.", "professor", "mr.", "mrs.", "ms.", "dean", "hod",
+        "superset", "joinsuperset", "naukri", "unstop", "internshala", "hackerrank",
+        "render", "vercel", "github", "supabase", "resend", "axis bank"
+    }
+
+    CORPORATE_SUFFIXES = [
+        "pvt ltd", "pvt. ltd.", "private limited", "ltd", "ltd.", "limited",
+        "inc", "inc.", "technologies", "technology", "services", "solutions",
+        "tech", "labs", "analytics", "infotech", "systems", "global",
+        "consulting", "software", "enterprises", "holdings", "llc", "corp", "corporation", "group"
+    ]
+
+    KNOWN_COMPANIES = {
+        "kpmg", "kpmg india", "kpmg in india", "hcltech", "hcl", "tcs", "tata consultancy services",
+        "infosys", "wipro", "cognizant", "ltimindtree", "mindtree", "tata elxsi", "to the new",
+        "whatbytes", "kpit", "kpit technologies", "athenian tech", "athenian tech pvt ltd",
+        "oncehub", "oncehub technologies", "trangile", "trangile services", "google", "microsoft",
+        "amazon", "meta", "apple", "netflix", "adobe", "salesforce", "cisco", "oracle", "sap",
+        "ibm", "intel", "dell", "hp", "accenture", "capgemini", "deloitte", "pwc", "ey", "ernst & young",
+        "ey gds", "zoho", "icertis", "swiggy", "zomato", "flipkart", "paytm", "phonepe", "razorpay",
+        "cred", "uber", "ola", "atlassian", "optum", "incedo", "birlasoft", "persistent",
+        "tech mahindra", "hexaware", "mphasis", "zensar", "coforge", "cyient", "sonata software",
+        "nagarro", "adp", "intuit", "paypal", "stripe", "siemens", "bosch", "synopsys", "cadence",
+        "qualcomm", "broadcom", "amd", "nvidia", "samsung", "reliance", "jio", "airtel",
+        "adyapan", "incruiter", "evalueserve", "penthara", "penthara technologies", "procdna",
+        "procdna analytics", "mindware", "mindware infotech", "onebanc", "wonderlend hubs",
+        "karamtara", "karamtara engineering", "corizo", "travclan", "edique", "edique solutions",
+        "befisc", "priority idc", "eroovo", "eroovo tech", "datopic", "datopic technologies",
+        "optimus information", "rgf professional", "rgf professional india", "veltech", "jetro",
+        "aenexz", "aenexz tech", "testmu ai", "peepalco", "techgration", "techgration technology",
+        "goldman sachs", "morgan stanley", "jp morgan", "jpmorgan", "barclays", "bny mellon",
+        "citi", "citigroup", "wells fargo", "deutsche bank", "hsbc", "american express", "amex"
+    }
+
+    @classmethod
+    def clean_name(cls, raw: str) -> str:
+        if not raw:
+            return ""
+        c = raw.strip().strip('*').strip('-').strip(':').strip('|').strip('"').strip("'").strip()
+        c = re.sub(r'^(?:New\s+Notice|Notice|Imp\s*-\s*Batch\s*\d+|Batch\s*\d+|Re:|Fwd:|Update:)\s*[-–:]*\s*', '', c, flags=re.IGNORECASE).strip()
+        c = re.sub(r'^(?:Register\s+for\s+Recruitment\s+Drives?|Registration\s+Required(?:\s+ASAP)?|Registration|Recruitment\s+Drive)\s*[-–:]*\s*', '', c, flags=re.IGNORECASE).strip()
+        c = re.sub(r'^(?:Online\s+Assessment|Assessment\s+Link|Registration\s+Link|Updated\s+Registeration\s+Link)\s*[-–:]*\s*', '', c, flags=re.IGNORECASE).strip()
+        c = re.sub(r'^(?:fill\s+the\s+Registration\s+form|Registrations)\s*[-–:]*\s*', '', c, flags=re.IGNORECASE).strip()
+        c = re.sub(r'\s+is\s+(?:hiring|planning|visiting|conducting).*$', '', c, flags=re.IGNORECASE).strip()
+        c = re.sub(r'\s*\(previously known as [^)]+\)', '', c, flags=re.IGNORECASE).strip()
+        return c.strip()
+
+    @classmethod
+    def is_valid_company(cls, name: str) -> bool:
+        if not name or len(name) < 2 or len(name) > 60:
+            return False
+        
+        low = name.lower().strip()
+        
+        # 1. Negative check: exact match with junk keywords
+        if low in cls.JUNK_KEYWORDS:
+            return False
+        
+        words = set(re.findall(r'[a-zA-Z]+', low))
+        if not words or words.issubset(cls.JUNK_KEYWORDS):
+            return False
+            
+        disqualifiers = [
+            "registration link", "important advisory", "security disclosure",
+            "marks submission", "dr. ravi", "axis bank", "credited to", "debited from",
+            "galgotias university", "training & placement", "t&p cell", "placement cell",
+            "rewards you could win", "isp opportunity", "pending scse", "hiring organization"
+        ]
+        if any(d in low for d in disqualifiers):
+            return False
+
+        # Disqualify if it has person salutations
+        if any(low.startswith(t + " ") or f" {t} " in low for t in ["dr.", "prof.", "mr.", "ms.", "mrs."]):
+            return False
+
+        # 2. Positive check:
+        # A) Match with known companies
+        if any(kc == low or low.startswith(kc + " ") or low.endswith(" " + kc) for kc in cls.KNOWN_COMPANIES):
+            return True
+
+        # B) Corporate suffix
+        if any(low.endswith(" " + cs) or f" {cs} " in low for cs in cls.CORPORATE_SUFFIXES):
+            return True
+
+        # C) Well-formed capitalized entity name without junk words
+        if re.match(r'^[A-Z][a-zA-Z0-9&.\'\- ]+$', name):
+            if not any(j in words for j in ["link", "important", "notice", "registration", "update", "batch", "branches"]):
+                return True
+
+        return False
+
+    @classmethod
+    def score_candidate(cls, cand: str) -> int:
+        if not cand or not cls.is_valid_company(cand):
+            return -100
+        low = cand.lower().strip()
+        score = 10
+        if any(kc == low or low.startswith(kc + " ") or low.endswith(" " + kc) for kc in cls.KNOWN_COMPANIES):
+            score += 50
+        if any(low.endswith(" " + cs) or f" {cs} " in low for cs in cls.CORPORATE_SUFFIXES):
+            score += 30
+        return score
+
+
 class OpportunityAgent:
     version: str = "v1.3"
 
@@ -72,6 +191,7 @@ class OpportunityAgent:
         campus placement, or recruitment drive.
         Filters out spam, newsletters, OTPs, promotional emails, student surveys, 
         cultural/sports fest notices, administrative college circulars, etc.
+        Requires a valid, verified company to be identified.
         """
         subj_clean = (subject or "").lower().strip()
         body_clean = (text or "").lower().strip()
@@ -83,12 +203,12 @@ class OpportunityAgent:
             "verify your email", "password reset", "security alert", "login alert",
             "two-factor", "2-step verification", "one-time passcode", "one-time password",
             "your otp is", "otp for", "verification code", "your code is", "welcome to",
-            "reset your password", "security code"
+            "reset your password", "security code", "security disclosure", "security advisory"
         ]
         if any(w in subj_clean for w in auth_signals) or any(w in body_clean[:250] for w in auth_signals):
             return False, "authentication/security"
 
-        # 2. Immediate negative exclusion: E-commerce, Transactions, Bills, Coupons, Travel, Banking
+        # 2. Immediate negative exclusion: E-commerce, Transactions, Bills, Coupons, Travel, Banking, Infrastructure
         commerce_signals = [
             "order confirmed", "order placed", "your order", "payment received", "receipt for",
             "invoice", "billed to", "statement of account", "transaction successful",
@@ -98,16 +218,20 @@ class OpportunityAgent:
             "course discount", "upgrade your plan", "terms of service updated",
             "irctc", "pnr", "train ticket", "flight ticket", "account debited", "account credited",
             "bank alert", "axis bank", "credit card statement", "card ending", "upi transaction",
+            "credited to your a/c", "debited from your a/c", "inr ", "amount credited",
             "application submitted successfully", "your application has been submitted",
-            "application confirmation", "thanks for filling in this form"
+            "application confirmation", "thanks for filling in this form",
+            "1 new update on rewards", "rewards you could win", "isp opportunity",
+            "recent industry security disclosures"
         ]
-        if any(w in subj_clean for w in commerce_signals) or any(w in body_clean[:200] for w in [
+        if any(w in subj_clean for w in commerce_signals) or any(w in body_clean[:250] for w in [
             "application submitted successfully", "your application has been submitted",
-            "thanks for filling in this form", "irctc e-ticketing", "account debited"
+            "thanks for filling in this form", "irctc e-ticketing", "account debited",
+            "amount credited", "upi transaction", "credited to your a/c"
         ]):
             return False, "transactional/promotional/receipt"
 
-        # 3. Exclude Non-Career Campus / University Notices (Surveys, Fests, Admin, Elections, Exams)
+        # 3. Exclude Non-Career Campus / University Notices (Surveys, Fests, Admin, Elections, Exams, Marks)
         non_career_campus = [
             "feedback form", "course evaluation", "teacher feedback", "student survey",
             "alumni survey", "general survey", "hostel room", "mess committee",
@@ -117,12 +241,13 @@ class OpportunityAgent:
             "late fee fine", "library book due", "bus route change", "annual athletic",
             "blood donation camp", "nss activity", "ncc drill", "dj night", "celebrity night",
             "mid term examination", "mid term exam", "mid-term examination", "capstone project",
+            "examiner marks submission", "guide and examiner", "marks submission", "pending scse",
             "take a second look", "weekly digest", "round 1", "round 2"
         ]
         if any(w in subj_clean for w in non_career_campus):
             return False, "campus_survey_or_admin"
 
-        # Exclude known promo domains & general newsletter digests
+        # Exclude known promo domains & general newsletter digests & infrastructure platforms
         promo_domains = [
             "supabase.com", "cipherschools.com", "crio.do", "crio.in",
             "accounts.google.com", "spotify.com", "netflix.com", "youtube.com",
@@ -130,7 +255,8 @@ class OpportunityAgent:
             "resend.dev", "support@github.com", "noreply@github.com",
             "mail.instagram.com", "facebookmail.com", "twitter.com", "x.com",
             "linkedin.com", "leetcode.com", "devpost.com", "unstop.news",
-            "acciojob-team.org", "codeforces.com"
+            "acciojob-team.org", "codeforces.com", "render.com", "vercel.com",
+            "axis.bank.in", "axisbank.com", "hdfcbank.com", "icicibank.com", "sbi.co.in"
         ]
         if any(pd in from_clean for pd in promo_domains):
             return False, "excluded_domain"
@@ -172,6 +298,11 @@ class OpportunityAgent:
 
         if not has_any_link and not (has_career_subj or has_career_body_details):
             return False, "missing_application_route"
+
+        # 6. Must have a genuine, verified company name extracted!
+        company = self._extract_company(text, from_addr, subject)
+        if not company:
+            return False, "no_verified_company"
 
         return True, "valid_opportunity"
 
@@ -428,141 +559,150 @@ class OpportunityAgent:
 
         return None, None
 
-    def _extract_company(self, text: str, source_email: Optional[str], subject_line: str) -> str:
+    def _extract_company(self, text: str, source_email: Optional[str], subject_line: str) -> Optional[str]:
         """
         Extracts genuine hiring company name, bypassing recruitment portals and university mail handlers.
+        Returns a verified, authentic company name, or None if no legitimate company is found.
         """
         clean_no_html = re.sub(r'<[^>]+>', ' ', text)
         subj = subject_line or ""
+        candidates = []
 
-        def _clean_cand(c: str) -> str:
-            if not c:
-                return ""
-            c = c.strip().strip('*').strip('-').strip(':').strip()
-            c = re.sub(r'^(?:New\s+Notice|Notice|Imp\s*-\s*Batch\s*\d+|Batch\s*\d+|Re:|Fwd:|Update:)\s*[-–:]*\s*', '', c, flags=re.IGNORECASE).strip()
-            c = re.sub(r'^(?:Register\s+for\s+Recruitment\s+Drives?|Registration\s+Required|Registration|Recruitment\s+Drive)\s*[-–:]*\s*', '', c, flags=re.IGNORECASE).strip()
-            c = re.sub(r'^(?:fill\s+the\s+Registration\s+form|Registrations)\s*[-–:]*\s*', '', c, flags=re.IGNORECASE).strip()
-            c = re.sub(r'\s+is\s+(?:hiring|planning|visiting|conducting).*$', '', c, flags=re.IGNORECASE).strip()
-            c = re.sub(r'\s*\(previously known as [^)]+\)', '', c, flags=re.IGNORECASE).strip()
-            return c.strip()
+        # 1. Evaluate Subject Chunks (splitting on ||, |, --, or -)
+        delims = ["||", "|", "--"]
+        for delim in delims:
+            if delim in subj:
+                chunks = [c.strip() for c in subj.split(delim) if c.strip()]
+                for chunk in chunks:
+                    c = CompanyValidator.clean_name(chunk)
+                    if CompanyValidator.is_valid_company(c):
+                        score = CompanyValidator.score_candidate(c)
+                        candidates.append((score, c))
+                break
 
-        # 1. Delimiter chunks in subject (|| or |)
-        if "||" in subj or "|" in subj:
-            sep = "||" if "||" in subj else "|"
-            chunks = [c.strip() for c in subj.split(sep) if c.strip()]
-            for chunk in chunks:
-                cleaned = _clean_cand(chunk)
-                low = cleaned.lower()
-                if any(b in low for b in ["gu/gcet", "gu/gcop", "galgotias", "b.tech", "mca", "m.tech", "cse", "batch", "register by", "package", "nomination", "internship +", "gender"]):
-                    continue
-                if len(cleaned) >= 2 and not any(p in low for p in ["notice", "registration", "required", "asap"]):
-                    return cleaned
-
-        # 2. Check subject drive/registration prefix: e.g.
-        # "New Notice - Register for Recruitment Drive - TO THE NEW || B.Tech..."
-        # "New Notice - Register for Recruitment Drives - Whatbytes || B.Tech..."
+        # 2. Subject regex patterns
         m_drive = re.search(
             r'(?:recruitment drive[s]?|registration required|registration|hiring drive|campus drive)\s*[-:]+\s*([A-Za-z0-9\s&.()\'\"-]{2,40}?)(?:\s*\|\||\s*--|\s*\||\s*,\s*batch|\s*\(|\s*$)',
             subj,
             re.IGNORECASE
         )
         if m_drive:
-            cand = _clean_cand(m_drive.group(1))
-            if len(cand) >= 2 and not any(b in cand.lower() for b in self.CAMPUS_BLACKLIST):
-                return cand
+            c = CompanyValidator.clean_name(m_drive.group(1))
+            if CompanyValidator.is_valid_company(c):
+                candidates.append((CompanyValidator.score_candidate(c) + 15, c))
 
-        # 3. Check subject notice pattern: e.g. "New Notice - Tata Elxsi - Launching TELIPORT Season 4..."
         m_notice = re.search(
             r'New Notice\s*-\s*([A-Za-z0-9\s&.()\'\"-]{2,35}?)\s*-\s*',
             subj,
             re.IGNORECASE
         )
         if m_notice:
-            cand = _clean_cand(m_notice.group(1))
-            if len(cand) >= 2 and not any(b in cand.lower() for b in self.CAMPUS_BLACKLIST) and not any(b in cand.lower() for b in ["register", "recruitment"]):
-                return cand
+            c = CompanyValidator.clean_name(m_notice.group(1))
+            if CompanyValidator.is_valid_company(c):
+                candidates.append((CompanyValidator.score_candidate(c) + 15, c))
 
-        # 4. Body text indicators:
-        # "This is to kindly inform you that TO THE NEW is hiring..."
-        # "This is to inform you that Whatbytes( ... ) is interested in hiring..."
+        m_assessment = re.search(
+            r'(?:Online Assessment|Assessment Link)\s*[-–:]+\s*([A-Za-z0-9\s&.()\'\"-]{2,35})',
+            subj,
+            re.IGNORECASE
+        )
+        if m_assessment:
+            c = CompanyValidator.clean_name(m_assessment.group(1))
+            if CompanyValidator.is_valid_company(c):
+                candidates.append((CompanyValidator.score_candidate(c) + 20, c))
+
+        # Check whole cleaned subject
+        cleaned_subj = CompanyValidator.clean_name(subj)
+        if CompanyValidator.is_valid_company(cleaned_subj):
+            candidates.append((CompanyValidator.score_candidate(cleaned_subj), cleaned_subj))
+
+        # 3. Body text indicators
         m_body = re.search(
             r'(?:inform you that|pleased to inform you that|greetings from)\s+([A-Za-z0-9\s&.()\'\"-]{2,35}?)(?:\([^)]*\))?\s+(?:is hiring|is interested in hiring|is conducting|is visiting)',
             clean_no_html,
             re.IGNORECASE
         )
         if m_body:
-            cand = m_body.group(1).strip()
-            if not any(b in cand.lower() for b in self.CAMPUS_BLACKLIST):
-                return cand
+            c = CompanyValidator.clean_name(m_body.group(1))
+            if CompanyValidator.is_valid_company(c):
+                candidates.append((CompanyValidator.score_candidate(c) + 25, c))
 
-        # "Tata Elxsi, a global leader in design and technology services..."
         m_leader = re.search(
             r'([A-Za-z0-9\s&.()\'\"-]{2,35}),\s+a\s+(?:global|leading|tech)\s+leader',
             clean_no_html,
             re.IGNORECASE
         )
         if m_leader:
-            cand = m_leader.group(1).strip()
-            if not any(b in cand.lower() for b in self.CAMPUS_BLACKLIST):
-                return cand
+            c = CompanyValidator.clean_name(m_leader.group(1))
+            if CompanyValidator.is_valid_company(c):
+                candidates.append((CompanyValidator.score_candidate(c) + 20, c))
 
-        # "Greetings from <Company>!"
         g_m = re.search(r"Greetings from(?:&nbsp;|\s)+([^!<\n\r]{2,40})!", clean_no_html, re.IGNORECASE)
         if g_m:
-            c = g_m.group(1).replace("&nbsp;", " ").strip()
-            if not any(k in c.lower() for k in self.CAMPUS_BLACKLIST + ["team", "all"]):
-                return c
+            c = CompanyValidator.clean_name(g_m.group(1).replace("&nbsp;", " "))
+            if CompanyValidator.is_valid_company(c):
+                candidates.append((CompanyValidator.score_candidate(c) + 10, c))
 
-        # "<Company> is hiring for"
         h_m = re.search(r"([A-Za-z0-9\s&.]{2,35})\s+is\s+hiring\s+for", clean_no_html, re.IGNORECASE)
         if h_m:
-            cand = h_m.group(1).strip()
-            if cand.lower() not in ["team", "we", "organization", "student", "students"] and not any(b in cand.lower() for b in self.CAMPUS_BLACKLIST):
-                return cand
+            c = CompanyValidator.clean_name(h_m.group(1))
+            if CompanyValidator.is_valid_company(c):
+                candidates.append((CompanyValidator.score_candidate(c) + 15, c))
 
-        # 5. Check display name from source_email, unless it's a known intermediary platform
+        # 4. Check display name from source_email if not generic
         if source_email:
             disp_match = re.search(r"^([^<@]+)<", source_email)
             if disp_match:
-                cand_disp = disp_match.group(1).replace("Careers", "").replace("Recruiting", "").replace("Team", "").replace("Talent", "").strip()
-                if len(cand_disp) >= 2 and not any(p in cand_disp.lower() for p in self.INTERMEDIARY_PLATFORMS + self.CAMPUS_BLACKLIST + ["the", "info", "no-reply", "noreply", "support", "notifications"]):
-                    return cand_disp
+                cand_disp = CompanyValidator.clean_name(
+                    disp_match.group(1).replace("Careers", "").replace("Recruiting", "").replace("Team", "").replace("Talent", "")
+                )
+                if CompanyValidator.is_valid_company(cand_disp):
+                    candidates.append((CompanyValidator.score_candidate(cand_disp) + 5, cand_disp))
 
             domain_match = re.search(r"@([a-zA-Z0-9.-]+)", source_email)
             if domain_match:
                 domain = domain_match.group(1).lower()
                 parts = domain.split(".")
                 main_part = parts[-2] if len(parts) >= 2 and parts[-2] not in ["co", "com", "org", "net", "gov", "edu", "in"] else parts[0]
-                if main_part not in ["gmail", "outlook", "yahoo", "hotmail", "proton", "icloud", "mail", "resend", "sendgrid"] and not any(p in main_part for p in self.INTERMEDIARY_PLATFORMS + self.CAMPUS_BLACKLIST):
-                    return main_part.title()
+                if main_part not in ["gmail", "outlook", "yahoo", "hotmail", "proton", "icloud", "mail", "resend", "sendgrid", "joinsuperset", "internshala", "naukri", "unstop"]:
+                    if any(kc == main_part for kc in CompanyValidator.KNOWN_COMPANIES):
+                        candidates.append((60, main_part.title()))
 
-        # 6. Check bracketed company in subject: e.g. [Cred] or "at Cred"
-        tag_m = re.search(r"\[([A-Za-z0-9\s&]{2,25})\]", subject_line)
+        # 5. Check bracketed company in subject: e.g. [Cred] or "at Cred"
+        tag_m = re.search(r"\[([A-Za-z0-9\s&]{2,25})\]", subj)
         if tag_m:
-            cand = tag_m.group(1).strip()
-            if not any(p in cand.lower() for p in self.INTERMEDIARY_PLATFORMS + self.CAMPUS_BLACKLIST):
-                return cand
+            c = CompanyValidator.clean_name(tag_m.group(1))
+            if CompanyValidator.is_valid_company(c):
+                candidates.append((CompanyValidator.score_candidate(c) + 10, c))
 
-        at_m = re.search(r"(?:at|@)\s+([A-Za-z0-9&]{2,25})", subject_line, re.IGNORECASE)
+        at_m = re.search(r"(?:at|@)\s+([A-Za-z0-9&]{2,25})", subj, re.IGNORECASE)
         if at_m:
-            cand = at_m.group(1).strip()
-            if not any(p in cand.lower() for p in self.INTERMEDIARY_PLATFORMS + self.CAMPUS_BLACKLIST):
-                return cand
+            c = CompanyValidator.clean_name(at_m.group(1))
+            if CompanyValidator.is_valid_company(c):
+                candidates.append((CompanyValidator.score_candidate(c) + 10, c))
 
-        # 7. Fallback well-known companies (matched against clean non-HTML text)
-        common_cos = [
-            r"\b(Tata Elxsi|TO THE NEW|Whatbytes|Google|Microsoft|Amazon|Apple|Meta|Netflix|Stripe|Uber|Razorpay|Atlassian|Salesforce|Adobe|Cisco|Swiggy|Zomato|Flipkart|PhonePe|Cred|Paytm|TCS|Infosys|Wipro|Cognizant|KPIT Technologies|Athenian Tech)\b"
-        ]
-        m = re.search(common_cos[0], clean_no_html)
-        if m:
-            return m.group(1).strip()
+        # 6. Fallback well-known companies match against body
+        for kc in sorted(CompanyValidator.KNOWN_COMPANIES, key=len, reverse=True):
+            if len(kc) > 3 and re.search(rf"\b{re.escape(kc)}\b", clean_no_html, re.IGNORECASE):
+                # Verify match
+                m = re.search(rf"\b{re.escape(kc)}\b", clean_no_html, re.IGNORECASE)
+                matched_text = m.group(0).strip()
+                candidates.append((40, matched_text.title()))
+                break
 
-        return "Hiring Organization"
+        # Filter and rank candidates
+        valid_candidates = [cand for cand in candidates if cand[0] > 0 and CompanyValidator.is_valid_company(cand[1])]
+        if valid_candidates:
+            valid_candidates.sort(key=lambda x: x[0], reverse=True)
+            return valid_candidates[0][1]
 
-    def _extract_role(self, text: str, subject_line: str, company: str) -> str:
+        return None
+
+    def _extract_role(self, text: str, subject_line: str, company: Optional[str] = None) -> str:
         """
         Extracts appropriate role title from notice text or subject.
         """
+        comp_str = (company or "").lower()
         # 1. Check delimiter chunks in subject
         if "||" in subject_line:
             chunks = [c.strip() for c in subject_line.split("||") if c.strip()]
@@ -570,7 +710,7 @@ class OpportunityAgent:
                 low = chunk.lower()
                 if any(k in low for k in ["cse", "it", "b.tech", "engineer", "developer", "trainee", "fresher", "intern"]):
                     if not any(bad in low for bad in ["notice", "registration", "required", "asap"]):
-                        if company.lower() not in low:
+                        if not comp_str or comp_str not in low:
                             return f"Software Engineer ({chunk})"
 
         # 2. Check standard engineering roles in subject
@@ -618,6 +758,8 @@ class OpportunityAgent:
 
         # 1. Extract Company
         company = self._extract_company(text, source_email, subject_line)
+        if not company:
+            company = "Verified Campus Recruiter"
 
         # 2. Extract Role
         role = self._extract_role(text, subject_line, company)

@@ -17,12 +17,16 @@ export default function OAuthCallbackPage() {
       const code = params.get('code');
       const error = params.get('error_description') || params.get('error');
 
+      const isGoogle = window.location.pathname.includes('google') || params.get('state')?.includes('google');
+      const successType = isGoogle ? 'GOOGLE_AUTH_SUCCESS' : 'MICROSOFT_AUTH_SUCCESS';
+      const errorType = isGoogle ? 'GOOGLE_AUTH_ERROR' : 'MICROSOFT_AUTH_ERROR';
+
       if (error) {
         setStatus('error');
         setErrorMessage(error);
         if (window.opener) {
           window.opener.postMessage(
-            { type: 'MICROSOFT_AUTH_ERROR', error },
+            { type: errorType, error },
             window.location.origin
           );
           setTimeout(() => window.close(), 1200);
@@ -35,7 +39,7 @@ export default function OAuthCallbackPage() {
         if (window.opener) {
           window.opener.postMessage(
             {
-              type: 'MICROSOFT_AUTH_SUCCESS',
+              type: successType,
               access_token: accessToken,
               code
             },
@@ -43,8 +47,8 @@ export default function OAuthCallbackPage() {
           );
           setTimeout(() => window.close(), 500);
         } else {
-          // If not in a popup, redirect to dashboard
-          navigate('/dashboard');
+          // If not in a popup, redirect to integrations or dashboard
+          navigate('/integrations');
         }
       } else {
         setStatus('error');

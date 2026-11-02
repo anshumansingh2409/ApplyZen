@@ -346,23 +346,6 @@ export default function LoginPage({ defaultMode = 'login' }) {
               </div>
             </div>
 
-            {/* Quick Demo Sign In banner */}
-            <div className="mb-4 p-3 bg-emerald-50/80 border border-emerald-200/80 rounded-xl flex items-center justify-between text-xs text-emerald-900">
-              <div>
-                <span className="font-bold">Instant Login (Pre-configured):</span>
-                <div className="text-[11px] text-emerald-700 font-mono">anshuman / applyzen123</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIdentifier('anshuman');
-                  setPassword('applyzen123');
-                }}
-                className="px-2.5 py-1 bg-[#05603a] hover:bg-[#034a27] text-white text-[11px] font-semibold rounded-lg transition-all cursor-pointer shadow-2xs"
-              >
-                Auto Fill
-              </button>
-            </div>
 
             {/* Email & Password Form */}
             <form className="space-y-4" onSubmit={handleSubmit}>

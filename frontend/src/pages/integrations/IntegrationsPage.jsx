@@ -57,7 +57,13 @@ export default function IntegrationsPage() {
 
     googleAuthClient.connectGmailInbox({
       onSuccess: async (data) => {
-        setMessage(`Successfully connected Gmail: ${data.account_email}! Ready to sync.`);
+        const count = data?.synced_count ?? 0;
+        setMessage(
+          data?.message ||
+          (count > 0
+            ? `Successfully connected Gmail (${data.account_email})! Ingested ${count} new opportunities.`
+            : `Successfully connected Gmail (${data.account_email})! Monitoring for incoming career emails.`)
+        );
         setConnecting(false);
         await fetchStatus();
       },
@@ -85,7 +91,13 @@ export default function IntegrationsPage() {
         email: appEmail.trim(),
         app_password: appPassword.trim()
       });
-      setMessage(`Successfully connected Gmail via App Password: ${res.data.account_email}!`);
+      const count = res.data?.synced_count ?? 0;
+      setMessage(
+        res.data?.message ||
+        (count > 0
+          ? `Successfully connected Gmail (${res.data.account_email}) via App Password! Ingested ${count} opportunities.`
+          : `Successfully connected Gmail (${res.data.account_email}) via App Password!`)
+      );
       setShowAppPasswordModal(false);
       setAppPassword('');
       await fetchStatus();
@@ -416,6 +428,10 @@ export default function IntegrationsPage() {
               </>
             ) : (
               <>
+                <div className="p-2.5 bg-amber-50/90 border border-amber-200/80 rounded-xl text-[11px] text-amber-900 leading-snug">
+                  <span className="font-bold">💡 Google Screen Notice:</span> If Google displays <em>"Google hasn't verified this app"</em>, click <strong>"Continue"</strong> (bottom-left) to connect. Or use <strong>App Password</strong> below.
+                </div>
+
                 <button
                   onClick={handleConnectGmailOAuth}
                   disabled={connecting}

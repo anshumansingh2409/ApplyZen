@@ -23,6 +23,9 @@ from app.ai.agents.orchestrator_agent import career_orchestrator
 from app.ai.agents.opportunity_agent import opportunity_agent
 from app.cache.redis import redis_manager
 
+# Strict date cutoff: Only fetch October 1st, 2026 and newer data
+OCTOBER_CUTOFF_DATE = datetime(2026, 10, 1, 0, 0, 0, tzinfo=timezone.utc)
+
 
 class GmailService:
     TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
@@ -182,19 +185,12 @@ class GmailService:
 
     async def disconnect(self, user_id: str) -> Dict[str, Any]:
         """
-        Completely disconnects and deletes stored Gmail connections for the user.
+        Completely disconnects and deletes stored Gmail connections strictly for the user.
         """
         db = get_database()
-        user = await db.users.find_one({"_id": user_id})
-        user_email = (user.get("email") or "").lower().strip() if user else ""
-
-        or_conditions = [{"user_id": user_id}]
-        if user_email:
-            or_conditions.append({"account_email": user_email})
-
         res = await db.oauth_connections.delete_many({
             "provider": "gmail",
-            "$or": or_conditions
+            "user_id": user_id
         })
         logger.info(f"Disconnected Gmail for user {user_id}, deleted {res.deleted_count} connection docs")
         return {"success": True, "provider": "gmail", "connected": False}
@@ -375,7 +371,11 @@ class GmailService:
                 mail.login(email_addr, pwd)
                 mail.select("INBOX", readonly=True)
 
-                status, data = mail.uid('search', None, 'ALL')
+                # Search strictly for emails received since October 1st, 2026
+                status, data = mail.uid('search', None, '(SINCE "01-Oct-2026")')
+                if status != 'OK' or not data or not data[0]:
+                    # Fallback to ALL if server doesn't support SINCE filter
+                    status, data = mail.uid('search', None, 'ALL')
                 if status != 'OK' or not data or not data[0]:
                     mail.close()
                     mail.logout()
@@ -383,7 +383,7 @@ class GmailService:
 
                 uid_list = data[0].split()
                 # Check recent messages (fast slice)
-                fetch_limit = max(max_results, 35)
+                fetch_limit = max(max_results, 40)
                 recent_uids = uid_list[-fetch_limit:] if len(uid_list) > fetch_limit else uid_list
                 recent_uids.reverse()  # newest first
 
@@ -396,6 +396,17 @@ class GmailService:
                         raw_header_bytes = h_data[0][1]
                         parsed_hdr = pyemail.message_from_bytes(raw_header_bytes)
                         msg_id = (parsed_hdr.get("Message-ID") or f"imap_uid_{uid_str}").strip().strip("<>")
+                        
+                        # Strict Date check: Must be on or after October 1st, 2026
+                        date_str = parsed_hdr.get("Date")
+                        if date_str:
+                            try:
+                                dt = pyemail.utils.parsedate_to_datetime(date_str)
+                                if dt and dt.astimezone(timezone.utc) < OCTOBER_CUTOFF_DATE:
+                                    continue
+                            except Exception:
+                                pass
+
                         fetched_headers.append((uid_bytes, msg_id, raw_header_bytes))
 
                 mail.close()
@@ -496,11 +507,17 @@ class GmailService:
                         continue
 
                     # Parse true email arrival time
+                    parsed_dt = None
                     try:
                         parsed_dt = pyemail.utils.parsedate_to_datetime(date_header)
                         received_at_iso = parsed_dt.astimezone(timezone.utc).isoformat()
                     except Exception:
                         received_at_iso = datetime.now(timezone.utc).isoformat()
+
+                    # Strict Date filter: Only emails received on or after October 1st, 2026
+                    if parsed_dt and parsed_dt.astimezone(timezone.utc) < OCTOBER_CUTOFF_DATE:
+                        logger.info(f"[GmailService-IMAP] Skipping email before October 2026: {date_header}")
+                        continue
 
                     full_email_text = f"Subject: {subject}\nFrom: {from_header}\nDate: {date_header}\n\n{body_text}"
                     process_res = await career_orchestrator.process_email_opportunity(
@@ -582,8 +599,8 @@ class GmailService:
             }
 
         headers = {"Authorization": f"Bearer {access_token}"}
-        # Search all recent inbox emails (last 30 days) to detect any job, internship, or recruitment notice
-        inbox_career_query = 'label:INBOX newer_than:30d'
+        # Search all recent inbox emails received since October 1st, 2026
+        inbox_career_query = 'label:INBOX after:2026/09/30'
         final_query = query if query else inbox_career_query
         effective_max = max(max_results, 60)
 
@@ -657,6 +674,7 @@ class GmailService:
                     # Extract actual email arrival timestamp from Gmail internalDate
                     internal_date_ms = msg_data.get("internalDate")
                     received_at_iso = None
+                    received_dt = None
                     if internal_date_ms:
                         try:
                             received_dt = datetime.fromtimestamp(int(internal_date_ms) / 1000.0, tz=timezone.utc)
@@ -666,9 +684,25 @@ class GmailService:
                     if not received_at_iso:
                         try:
                             parsed_date = pyemail.utils.parsedate_to_datetime(date_header)
-                            received_at_iso = parsed_date.astimezone(timezone.utc).isoformat()
+                            received_dt = parsed_date.astimezone(timezone.utc)
+                            received_at_iso = received_dt.isoformat()
                         except Exception:
                             received_at_iso = datetime.now(timezone.utc).isoformat()
+
+                    # Strict Date filter: Only process emails on or after October 1st, 2026
+                    if received_dt and received_dt < OCTOBER_CUTOFF_DATE:
+                        logger.info(f"[GmailService-OAuth] Skipping pre-October 2026 email: {received_dt.isoformat()}")
+                        await db.ingested_emails.insert_one({
+                            "user_id": user_id,
+                            "provider": "gmail",
+                            "message_id": msg_id,
+                            "subject": subject,
+                            "from": from_header,
+                            "is_opportunity": False,
+                            "reason": "before_october_cutoff",
+                            "ingested_at": datetime.now(timezone.utc).isoformat()
+                        })
+                        continue
 
                     full_email_text = f"Subject: {subject}\nFrom: {from_header}\nDate: {date_header}\n\n{body_text}"
                     process_res = await career_orchestrator.process_email_opportunity(

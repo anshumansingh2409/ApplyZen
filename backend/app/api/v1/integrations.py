@@ -36,37 +36,27 @@ class AppPasswordPayload(BaseModel):
 @router.get("/status")
 async def get_integrations_status(current_user: dict = Depends(get_current_user)):
     """
-    Returns true integration status for the authenticated user.
-    If not connected, returns connected=False and account_email=None.
+    Returns true integration status strictly isolated to the authenticated user.
+    Each user maintains their own independent connection status.
     """
     db = get_database()
     user_id = current_user["_id"]
-    user_email = (current_user.get("email") or "").lower().strip()
 
     conns = await db.oauth_connections.find({
-        "$or": [
-            {"user_id": user_id},
-            {"account_email": user_email}
-        ]
+        "user_id": user_id,
+        "is_active": True
     }).to_list(10)
-
-    # Self-heal user_id if needed
-    for c in conns:
-        if c.get("user_id") != user_id and c.get("account_email") == user_email:
-            await db.oauth_connections.update_one({"_id": c["_id"]}, {"$set": {"user_id": user_id}})
 
     # A connection is truly connected ONLY if is_active is True AND either access_token or app_password exists
     gmail_conn = next((
         c for c in conns
         if c.get("provider") == "gmail"
-        and c.get("is_active") is True
         and bool(c.get("access_token") or c.get("app_password"))
     ), None)
 
     outlook_conn = next((
         c for c in conns
         if c.get("provider") == "outlook"
-        and c.get("is_active") is True
         and bool(c.get("access_token") or c.get("app_password"))
     ), None)
 
@@ -94,7 +84,7 @@ async def connect_google_inbox(
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Connects real Gmail inbox using Google OAuth authorization code or access token.
+    Connects real Gmail inbox and immediately auto-syncs recent career opportunities.
     """
     user_id = current_user["_id"]
     try:
@@ -104,6 +94,24 @@ async def connect_google_inbox(
             result = await gmail_service.connect_with_token(user_id, payload.access_token)
         else:
             raise HTTPException(status_code=400, detail="access_token or code is required.")
+        
+        # Immediate auto-sync upon connection (safeguarded)
+        synced_count = 0
+        sync_res = {}
+        try:
+            sync_res = await gmail_service.sync_emails(user_id=user_id, max_results=30)
+            synced_count = sync_res.get("synced_count", 0)
+        except Exception as sync_err:
+            logger.warning(f"Initial post-connect sync warning: {sync_err}")
+            sync_res = {"success": True, "synced_count": 0, "message": "Connected! Scanning inbox in background."}
+
+        result["sync"] = sync_res
+        result["synced_count"] = synced_count
+        result["message"] = (
+            f"Gmail connected! Ingested {synced_count} new career opportunities."
+            if synced_count > 0
+            else "Gmail connected successfully! Monitoring for incoming career emails."
+        )
         return result
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
@@ -118,7 +126,7 @@ async def connect_microsoft_inbox(
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Connects real Outlook/Office 365 inbox using Microsoft OAuth authorization code or access token.
+    Connects real Outlook/Office 365 inbox and immediately auto-syncs career opportunities.
     """
     user_id = current_user["_id"]
     try:
@@ -132,6 +140,16 @@ async def connect_microsoft_inbox(
             result = await outlook_service.connect_with_token(user_id, payload.access_token)
         else:
             raise HTTPException(status_code=400, detail="access_token or code is required.")
+        
+        # Immediate auto-sync upon connection
+        sync_res = await outlook_service.sync_emails(user_id=user_id, max_results=30)
+        result["sync"] = sync_res
+        result["synced_count"] = sync_res.get("synced_count", 0)
+        result["message"] = (
+            f"Outlook connected! Ingested {sync_res.get('synced_count', 0)} new career opportunities."
+            if sync_res.get("synced_count", 0) > 0
+            else "Outlook connected successfully! Listening for incoming career emails."
+        )
         return result
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
@@ -148,14 +166,33 @@ async def connect_gmail_app_password(
     """
     Connects Gmail using 16-letter App Password (IMAP SSL).
     Bypasses Google Cloud Console OAuth verification screens completely.
+    Immediately scans inbox and fetches career opportunities.
     """
     user_id = current_user["_id"]
     try:
-        return await gmail_service.connect_with_app_password(
+        conn_res = await gmail_service.connect_with_app_password(
             user_id=user_id,
             email_address=payload.email,
             app_password=payload.app_password
         )
+        # Immediate auto-sync upon connection (safeguarded)
+        synced_count = 0
+        sync_res = {}
+        try:
+            sync_res = await gmail_service.sync_emails(user_id=user_id, max_results=30)
+            synced_count = sync_res.get("synced_count", 0)
+        except Exception as sync_err:
+            logger.warning(f"Initial post-connect sync warning: {sync_err}")
+            sync_res = {"success": True, "synced_count": 0, "message": "Connected! Scanning inbox in background."}
+
+        conn_res["sync"] = sync_res
+        conn_res["synced_count"] = synced_count
+        conn_res["message"] = (
+            f"Gmail connected via App Password! Ingested {synced_count} new career opportunities."
+            if synced_count > 0
+            else "Gmail connected via App Password! Monitoring for incoming career emails."
+        )
+        return conn_res
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
@@ -170,14 +207,19 @@ async def connect_outlook_app_password(
 ):
     """
     Connects Outlook / Hotmail / Office 365 using password or App Password via IMAP SSL.
+    Immediately auto-syncs career opportunities.
     """
     user_id = current_user["_id"]
     try:
-        return await outlook_service.connect_with_app_password(
+        conn_res = await outlook_service.connect_with_app_password(
             user_id=user_id,
             email_address=payload.email,
             app_password=payload.app_password
         )
+        sync_res = await outlook_service.sync_emails(user_id=user_id, max_results=30)
+        conn_res["sync"] = sync_res
+        conn_res["synced_count"] = sync_res.get("synced_count", 0)
+        return conn_res
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
