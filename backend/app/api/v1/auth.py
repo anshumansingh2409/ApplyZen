@@ -11,7 +11,10 @@ from app.schemas.auth import (
     VerifyEmailRequest,
     ResendVerificationRequest,
     PasswordResetRequest,
-    PasswordResetConfirm
+    PasswordResetConfirm,
+    ChangePasswordPayload,
+    Toggle2FAPayload,
+    UserPreferencesPayload
 )
 from app.auth.service import auth_service
 from app.auth.dependencies import get_current_user
@@ -99,29 +102,59 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 
 @router.post("/change-password")
 async def change_password(
-    current_password: str = Body(..., embed=True),
-    new_password: str = Body(..., embed=True),
+    payload: ChangePasswordPayload,
     current_user: dict = Depends(get_current_user)
 ):
     from app.core.security import verify_password, hash_password
     from app.database.repositories.user_repository import user_repo
     from app.core.exceptions import AuthenticationError
 
-    if not verify_password(current_password, current_user.get("hashed_password", "")):
+    if not verify_password(payload.current_password, current_user.get("hashed_password", "")):
         raise AuthenticationError("Current password is incorrect")
 
-    await user_repo.update(current_user["_id"], {"hashed_password": hash_password(new_password)})
+    await user_repo.update(current_user["_id"], {"hashed_password": hash_password(payload.new_password)})
     return {"success": True, "message": "Password changed successfully"}
 
 
 @router.post("/toggle-2fa")
 async def toggle_2fa(
-    enabled: bool = Body(..., embed=True),
+    payload: Toggle2FAPayload,
     current_user: dict = Depends(get_current_user)
 ):
     from app.database.repositories.user_repository import user_repo
-    await user_repo.update(current_user["_id"], {"two_factor_enabled": enabled})
-    return {"success": True, "two_factor_enabled": enabled}
+    await user_repo.update(current_user["_id"], {"two_factor_enabled": payload.enabled})
+    return {"success": True, "two_factor_enabled": payload.enabled}
+
+
+@router.get("/preferences")
+async def get_preferences(current_user: dict = Depends(get_current_user)):
+    prefs = current_user.get("preferences", {})
+    return {
+        "success": True,
+        "preferences": {
+            "ai_model": prefs.get("ai_model", "zen-4-turbo"),
+            "temperature": prefs.get("temperature", 80),
+            "response_length": prefs.get("response_length", "Balanced"),
+            "theme": prefs.get("theme", "Light"),
+            "auto_apply": prefs.get("auto_apply", True),
+            "auto_cover_letters": prefs.get("auto_cover_letters", True),
+            "application_strategy": prefs.get("application_strategy", "Quality Focused (Highly Targeted)"),
+            "confidence_threshold": prefs.get("confidence_threshold", "Very High (90%+ Match)")
+        }
+    }
+
+
+@router.put("/preferences")
+async def update_preferences(
+    payload: UserPreferencesPayload,
+    current_user: dict = Depends(get_current_user)
+):
+    from app.database.repositories.user_repository import user_repo
+    update_data = {k: v for k, v in payload.model_dump().items() if v is not None}
+    current_prefs = current_user.get("preferences", {})
+    current_prefs.update(update_data)
+    await user_repo.update(current_user["_id"], {"preferences": current_prefs})
+    return {"success": True, "preferences": current_prefs, "message": "Preferences saved successfully"}
 
 
 @router.get("/export-data")
@@ -129,26 +162,53 @@ async def export_data(current_user: dict = Depends(get_current_user)):
     from app.database.repositories.career_profile_repository import career_profile_repo
     from app.database.repositories.opportunity_repository import opportunity_repo
     from app.database.repositories.application_repository import application_repo
+    from app.database.mongodb import get_database
 
-    profile = await career_profile_repo.get_by_user_id(current_user["_id"])
-    opps = await opportunity_repo.list_by_user(current_user["_id"])
-    apps = await application_repo.list_by_user(current_user["_id"])
+    db = get_database()
+    user_id = current_user["_id"]
+
+    profile = await career_profile_repo.get_by_user_id(user_id)
+    opps = await opportunity_repo.list_by_user(user_id)
+    apps = await application_repo.list_by_user(user_id)
+    resumes = await db.resumes.find({"user_id": user_id}).to_list(100)
+
+    # Clean object IDs for JSON serialization
+    for r in resumes:
+        if "_id" in r:
+            r["_id"] = str(r["_id"])
 
     return {
         "user": {
+            "id": user_id,
             "email": current_user.get("email"),
             "full_name": current_user.get("full_name"),
+            "username": current_user.get("username"),
             "role": current_user.get("role"),
-            "subscription_plan": current_user.get("subscription_plan")
+            "subscription_plan": current_user.get("subscription_plan"),
+            "two_factor_enabled": current_user.get("two_factor_enabled", False),
+            "created_at": current_user.get("created_at")
         },
         "career_profile": profile,
         "opportunities": opps,
-        "applications": apps
+        "applications": apps,
+        "resumes": resumes
     }
 
 
 @router.delete("/account")
 async def delete_account(current_user: dict = Depends(get_current_user)):
-    from app.database.repositories.user_repository import user_repo
-    await user_repo.update(current_user["_id"], {"is_active": False, "deleted": True})
-    return {"success": True, "message": "Account has been deleted"}
+    from app.database.mongodb import get_database
+    db = get_database()
+    user_id = current_user["_id"]
+
+    # Completely wipe all user records across all database collections
+    await db.users.delete_one({"_id": user_id})
+    await db.career_profiles.delete_many({"user_id": user_id})
+    await db.opportunities.delete_many({"user_id": user_id})
+    await db.applications.delete_many({"user_id": user_id})
+    await db.resumes.delete_many({"user_id": user_id})
+    await db.oauth_connections.delete_many({"user_id": user_id})
+    await db.notifications.delete_many({"user_id": user_id})
+    await db.ingested_emails.delete_many({"user_id": user_id})
+
+    return {"success": True, "message": "Your account and all associated data have been permanently deleted"}
