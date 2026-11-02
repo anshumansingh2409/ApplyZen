@@ -428,10 +428,6 @@ export default function IntegrationsPage() {
               </>
             ) : (
               <>
-                <div className="p-2.5 bg-amber-50/90 border border-amber-200/80 rounded-xl text-[11px] text-amber-900 leading-snug">
-                  <span className="font-bold">💡 Google Screen Notice:</span> If Google displays <em>"Google hasn't verified this app"</em>, click <strong>"Continue"</strong> (bottom-left) to connect. Or use <strong>App Password</strong> below.
-                </div>
-
                 <button
                   onClick={handleConnectGmailOAuth}
                   disabled={connecting}
