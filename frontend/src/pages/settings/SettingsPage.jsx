@@ -531,28 +531,28 @@ export default function SettingsPage() {
 
         <div className="divide-y divide-gray-100">
           {/* Row 1: Password */}
-          <div className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h4 className="text-xs font-bold text-gray-900">Password</h4>
-              <p className="text-xs text-gray-500 mt-0.5">Last changed 3 months ago</p>
+          <div className="py-4 flex flex-row items-center justify-between gap-3 sm:gap-4">
+            <div className="min-w-0 flex-1 pr-2">
+              <h4 className="text-xs sm:text-sm font-bold text-gray-900 leading-snug">Password</h4>
+              <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5 leading-snug">Last changed 3 months ago</p>
             </div>
             <button
               onClick={() => setShowPasswordModal(true)}
-              className="px-4 py-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-800 hover:bg-gray-50 transition-colors cursor-pointer w-fit"
+              className="px-3 sm:px-4 py-1.5 sm:py-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-800 hover:bg-gray-50 transition-colors cursor-pointer shrink-0 whitespace-nowrap shadow-2xs"
             >
               Change Password
             </button>
           </div>
 
           {/* Row 2: Two-Factor Authentication */}
-          <div className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h4 className="text-xs font-bold text-gray-900">Two-Factor Authentication</h4>
-              <p className="text-xs text-gray-500 mt-0.5">Add an extra layer of security to your account.</p>
+          <div className="py-4 flex flex-row items-center justify-between gap-3 sm:gap-4">
+            <div className="min-w-0 flex-1 pr-2">
+              <h4 className="text-xs sm:text-sm font-bold text-gray-900 leading-snug">Two-Factor Authentication</h4>
+              <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5 leading-snug">Add an extra layer of security to your account.</p>
             </div>
             <button
               onClick={handleToggle2FA}
-              className={`px-5 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer w-fit ${
+              className={`px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0 whitespace-nowrap shadow-2xs ${
                 twoFactorEnabled
                   ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
                   : 'bg-emerald-600 hover:bg-emerald-700 text-white'
@@ -563,28 +563,28 @@ export default function SettingsPage() {
           </div>
 
           {/* Row 3: Data Export */}
-          <div className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h4 className="text-xs font-bold text-gray-900">Data Export</h4>
-              <p className="text-xs text-gray-500 mt-0.5">Download a copy of your application history and profile data.</p>
+          <div className="py-4 flex flex-row items-center justify-between gap-3 sm:gap-4">
+            <div className="min-w-0 flex-1 pr-2">
+              <h4 className="text-xs sm:text-sm font-bold text-gray-900 leading-snug">Data Export</h4>
+              <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5 leading-snug">Download a copy of your application history and profile data.</p>
             </div>
             <button
               onClick={handleExportData}
-              className="px-4 py-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-800 hover:bg-gray-50 transition-colors cursor-pointer w-fit"
+              className="px-3 sm:px-4 py-1.5 sm:py-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-800 hover:bg-gray-50 transition-colors cursor-pointer shrink-0 whitespace-nowrap shadow-2xs"
             >
               Export All
             </button>
           </div>
 
           {/* Row 4: Delete Account */}
-          <div className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h4 className="text-xs font-bold text-red-600">Delete Account</h4>
-              <p className="text-xs text-gray-500 mt-0.5">Permanently remove all data and close your ApplyZen account.</p>
+          <div className="py-4 flex flex-row items-center justify-between gap-3 sm:gap-4">
+            <div className="min-w-0 flex-1 pr-2">
+              <h4 className="text-xs sm:text-sm font-bold text-red-600 leading-snug">Delete Account</h4>
+              <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5 leading-snug">Permanently remove all data and close your ApplyZen account.</p>
             </div>
             <button
               onClick={() => setShowDeleteModal(true)}
-              className="text-xs font-bold text-red-600 hover:text-red-700 hover:underline cursor-pointer w-fit"
+              className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl border border-red-200 transition-colors cursor-pointer shrink-0 whitespace-nowrap shadow-2xs"
             >
               Delete Account
             </button>

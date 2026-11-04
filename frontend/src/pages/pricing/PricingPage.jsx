@@ -98,7 +98,7 @@ export default function PricingPage() {
               }`}
             >
               {p.popular && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-[#05603a] text-white text-[11px] font-bold rounded-full uppercase tracking-wider shadow-xs">
+                <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 bg-[#05603a] text-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider rounded-full shadow-sm whitespace-nowrap z-10 flex items-center justify-center">
                   Most Popular Copilot
                 </span>
               )}
@@ -145,7 +145,7 @@ export default function PricingPage() {
 
       {/* Payment Checkout Modal */}
       {selectedPlanForCheckout && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl border border-gray-200">
             {paymentSuccessData ? (
               /* Success Receipt View */
@@ -314,20 +314,21 @@ export default function PricingPage() {
                     <span>Instant Activation</span>
                   </div>
 
-                  <div className="flex gap-3 pt-2">
+                  <div className="flex items-center gap-2.5 pt-2">
                     <button
                       type="button"
                       onClick={() => setSelectedPlanForCheckout(null)}
-                      className="flex-1 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer"
+                      className="w-24 sm:w-28 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer shrink-0 transition-colors"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={upgrading}
-                      className="flex-1 py-2.5 rounded-xl bg-[#05603a] hover:bg-[#034a27] text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                      className="flex-1 py-2.5 px-3 sm:px-4 rounded-xl bg-[#05603a] hover:bg-[#034a27] text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50 cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5"
                     >
-                      {upgrading ? 'Processing Payment...' : `Pay ${selectedPlanForCheckout.price} & Upgrade`}
+                      <span>{upgrading ? 'Processing Payment...' : `Pay ${selectedPlanForCheckout.price} & Upgrade`}</span>
+                      {!upgrading && <ArrowRight className="w-3.5 h-3.5 shrink-0" />}
                     </button>
                   </div>
                 </form>

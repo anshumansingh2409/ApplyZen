@@ -431,9 +431,9 @@ export default function CareerProfilePage() {
                 </div>
               </div>
 
-              {/* Profile Photo Upload */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-xl bg-gray-50/70 border border-gray-200/60">
-                <div className="relative w-20 h-20 rounded-full bg-emerald-100 border-2 border-emerald-500 overflow-hidden shrink-0 flex items-center justify-center text-emerald-800 font-bold text-xl shadow-xs">
+              {/* Profile Photo Upload - Centered on Mobile */}
+              <div className="flex flex-col sm:flex-row items-center text-center sm:text-left gap-4 p-4 rounded-xl bg-gray-50/70 border border-gray-200/60">
+                <div className="relative w-20 h-20 rounded-full bg-emerald-100 border-2 border-emerald-500 overflow-hidden shrink-0 flex items-center justify-center text-emerald-800 font-bold text-xl shadow-xs mx-auto sm:mx-0">
                   {profile?.avatar_url ? (
                     <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
                   ) : (
@@ -441,12 +441,12 @@ export default function CareerProfilePage() {
                   )}
                 </div>
 
-                <div className="space-y-1.5 flex-1">
+                <div className="space-y-1.5 flex-1 min-w-0">
                   <h3 className="text-xs font-bold text-gray-900">Profile Photo</h3>
-                  <p className="text-[11px] text-gray-500">
+                  <p className="text-[11px] text-gray-500 max-w-sm mx-auto sm:mx-0">
                     PNG, JPG, or GIF up to 5MB. Used for identity verification and company profile previews.
                   </p>
-                  <div className="flex items-center gap-2 pt-1">
+                  <div className="flex items-center justify-center sm:justify-start gap-2 pt-1">
                     <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#05603a] text-white text-xs font-semibold hover:bg-[#034a27] cursor-pointer transition-colors shadow-2xs">
                       <Camera className="w-3.5 h-3.5" />
                       <span>{profile?.avatar_url ? 'Change Photo' : 'Upload Photo'}</span>

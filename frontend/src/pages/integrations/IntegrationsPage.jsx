@@ -291,23 +291,25 @@ export default function IntegrationsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3 flex-nowrap overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden w-full sm:w-auto">
+        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
           <button
             onClick={handleCleanupMock}
-            className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold shadow-xs transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold shadow-xs transition-colors cursor-pointer shrink-0 whitespace-nowrap"
             title="Remove sample/demo opportunities"
           >
-            <Trash2 className="w-3.5 h-3.5 text-red-500" />
-            <span>Purge Sample Data</span>
+            <Trash2 className="w-3.5 h-3.5 text-red-500 shrink-0" />
+            <span className="hidden sm:inline">Purge Sample Data</span>
+            <span className="sm:hidden">Purge Data</span>
           </button>
 
           <button
             onClick={handleSyncEmails}
             disabled={syncing || (!status?.gmail?.connected && !status?.outlook?.connected)}
-            className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-[#05603a] hover:bg-[#034a27] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50 shrink-0 whitespace-nowrap"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-xl bg-[#05603a] hover:bg-[#034a27] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50 shrink-0 whitespace-nowrap"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
-            <span>{syncing ? 'Scanning Inboxes...' : 'Run Email Sync Now'}</span>
+            <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${syncing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{syncing ? 'Scanning Inboxes...' : 'Run Email Sync Now'}</span>
+            <span className="sm:hidden">{syncing ? 'Scanning...' : 'Sync Inboxes'}</span>
           </button>
         </div>
       </div>
