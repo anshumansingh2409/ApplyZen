@@ -18,5 +18,11 @@ class NotificationRepository(BaseRepository):
     async def mark_all_read(self, user_id: str):
         await self.collection.update_many({"user_id": user_id}, {"$set": {"is_read": True}})
 
+    async def delete_by_id(self, notification_id: str, user_id: str):
+        await self.collection.delete_one({"_id": notification_id, "user_id": user_id})
+
+    async def delete_all_by_user(self, user_id: str):
+        return await self.collection.delete_many({"user_id": user_id})
+
 
 notification_repo = NotificationRepository()

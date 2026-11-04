@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, CheckCircle2, AlertCircle, RefreshCw, ShieldCheck, Trash2, Key, HelpCircle, ExternalLink, X } from 'lucide-react';
+import { Mail, CheckCircle2, AlertCircle, RefreshCw, ShieldCheck, Trash2, Key, HelpCircle, ExternalLink, X, Smartphone, Globe } from 'lucide-react';
 import api from '../../services/api';
 import { opportunityService } from '../../services/opportunity.service';
 import { googleAuthClient } from '../../services/googleAuth';
 import { microsoftAuthClient } from '../../services/microsoftAuth';
 import MicrosoftAuthModal from '../../components/auth/MicrosoftAuthModal';
+import { useAuth } from '../../context/AuthContext';
 
 export default function IntegrationsPage() {
+  const { user } = useAuth();
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -50,6 +52,13 @@ export default function IntegrationsPage() {
     fetchStatus();
   }, []);
 
+  const openGmailAppPasswordModal = () => {
+    if (!appEmail && user?.email) {
+      setAppEmail(user.email);
+    }
+    setShowAppPasswordModal(true);
+  };
+
   const handleConnectGmailOAuth = () => {
     setErrorMsg('');
     setMessage('');
@@ -71,9 +80,7 @@ export default function IntegrationsPage() {
         const errStr = typeof err === 'string' ? err : 'Google OAuth permission was cancelled or failed.';
         setErrorMsg(errStr);
         setConnecting(false);
-        if (errStr.includes('blocked') || errStr.includes('403') || errStr.includes('access_denied') || errStr.includes('verification')) {
-          setShowHelpModal(true);
-        }
+        setShowHelpModal(true);
       }
     });
   };
@@ -416,7 +423,7 @@ export default function IntegrationsPage() {
 
                 <div className="pt-1 flex items-center justify-between text-[11px]">
                   <button
-                    onClick={() => setShowAppPasswordModal(true)}
+                    onClick={openGmailAppPasswordModal}
                     className="text-gray-500 hover:text-emerald-700 underline font-medium cursor-pointer"
                   >
                     Switch to App Password
@@ -442,12 +449,23 @@ export default function IntegrationsPage() {
                 </button>
 
                 <button
-                  onClick={() => setShowAppPasswordModal(true)}
+                  onClick={openGmailAppPasswordModal}
                   className="w-full py-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 flex items-center justify-center gap-1.5"
                 >
                   <Key className="w-3.5 h-3.5 text-emerald-700" />
                   <span>Connect with App Password</span>
                 </button>
+
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowHelpModal(true)}
+                    className="w-full text-center text-[11px] text-emerald-800 hover:text-emerald-950 hover:underline flex items-center justify-center gap-1 font-medium"
+                  >
+                    <HelpCircle className="w-3 h-3 text-amber-500 shrink-0" />
+                    <span>Google blocked with Error 403? See instant fix</span>
+                  </button>
+                </div>
               </>
             )}
           </div>
@@ -620,7 +638,7 @@ export default function IntegrationsPage() {
                 <input
                   type="email"
                   required
-                  placeholder="anshumansingh2409@gmail.com"
+                  placeholder={user?.email || "your-email@gmail.com"}
                   value={appEmail}
                   onChange={(e) => setAppEmail(e.target.value)}
                   className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500/20 focus:border-[#05603a] outline-none"
@@ -650,7 +668,7 @@ export default function IntegrationsPage() {
                 <button
                   type="submit"
                   disabled={appLoading}
-                  className="px-4 py-2 text-xs font-bold text-white bg-[#05603a] hover:bg-[#034a27] rounded-xl shadow-xs disabled:opacity-50"
+                  className="px-4 py-2 text-xs font-bold text-white bg-[#05603a] hover:bg-[#034a27] rounded-xl shadow-xs disabled:opacity-50 cursor-pointer"
                 >
                   {appLoading ? 'Connecting...' : 'Connect Gmail'}
                 </button>
@@ -663,60 +681,97 @@ export default function IntegrationsPage() {
       {/* Google OAuth Help Modal */}
       {showHelpModal && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-200 space-y-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-200 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <div className="flex items-center gap-2">
-                <HelpCircle className="w-5 h-5 text-red-600" />
+                <HelpCircle className="w-5 h-5 text-red-600 shrink-0" />
                 <h3 className="text-base font-bold text-gray-900">How to Fix "Access Blocked (Error 403)"</h3>
               </div>
               <button
                 onClick={() => setShowHelpModal(false)}
-                className="text-gray-400 hover:text-gray-600 p-1"
+                className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="text-xs text-gray-700 space-y-3 leading-relaxed">
-              <p>
-                Google Cloud Console mein app jab <strong>"Testing"</strong> mode mein hoti hai, tab Google security policy ke mutabiq sirf unhi emails ko allow karta hai jo <strong>Test Users</strong> list mein add ki gayi hon.
+              <p className="text-gray-600">
+                Google Cloud Console mein app jab <strong>"Testing"</strong> mode mein hoti hai, tab Google security policy ke mutabiq unhi emails ko allow karta hai jo <strong>Test Users</strong> mein added hon. Baki sabhi users ko Error 403 (access_denied) aata hai.
               </p>
 
-              <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 space-y-2">
-                <p className="font-bold text-gray-900">Option 1: Add as Test User in Google Cloud (1 Minute Fix)</p>
-                <ol className="list-decimal list-inside space-y-1 text-gray-600 text-[11px]">
-                  <li>
-                    Open <a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank" rel="noreferrer" className="text-[#05603a] font-bold underline inline-flex items-center gap-0.5">Google Cloud OAuth Consent Screen <ExternalLink className="w-2.5 h-2.5" /></a>
-                  </li>
-                  <li>Scroll down to <strong>"Test users"</strong> section.</li>
-                  <li>Click <strong>"+ ADD USERS"</strong>.</li>
-                  <li>Enter your email: <code className="bg-emerald-100 text-emerald-900 px-1 py-0.5 rounded font-bold">anshumansingh2409@gmail.com</code></li>
-                  <li>Click <strong>SAVE</strong>.</li>
-                  <li>Wapas aakar "Connect via Google OAuth" click karein. (Popup mein "Advanced" &gt; "Go to applyzen" click karke continue karein).</li>
-                </ol>
-              </div>
-
-              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 space-y-2">
-                <p className="font-bold text-emerald-900">Option 2: Use Gmail App Password (Zero Setup)</p>
-                <p className="text-[11px] text-emerald-800">
-                  Aapko Google Cloud Console kholne ki bhi zarurat nahi padegi. Seedhe <strong>"Connect with App Password"</strong> button use karein aur 10 seconds mein connect ho jayega!
+              {/* Option 1: App Password */}
+              <div className="p-3.5 bg-emerald-50 rounded-xl border border-emerald-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="font-bold text-emerald-950 flex items-center gap-1.5">
+                    <Key className="w-3.5 h-3.5 text-[#05603a]" />
+                    <span>Option 1: Connect via App Password (100% Guaranteed For Any User)</span>
+                  </p>
+                  <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-bold">Fastest</span>
+                </div>
+                <p className="text-[11px] text-emerald-900 leading-normal">
+                  Zero setup needed! Google verification screen bypass ho jayegi aur 15 seconds mein connect ho jayega. Koi bhi user easily connect kar sakta hai.
                 </p>
                 <button
                   onClick={() => {
                     setShowHelpModal(false);
-                    setShowAppPasswordModal(true);
+                    openGmailAppPasswordModal();
                   }}
-                  className="px-3 py-1.5 bg-[#05603a] text-white rounded-lg font-bold text-[11px]"
+                  className="px-3 py-1.5 bg-[#05603a] hover:bg-[#034a27] text-white rounded-lg font-bold text-[11px] shadow-2xs transition-colors cursor-pointer"
                 >
-                  Use App Password Instead
+                  Use App Password Instead →
                 </button>
+              </div>
+
+              {/* Option 2: Publish App */}
+              <div className="p-3.5 bg-blue-50/80 rounded-xl border border-blue-200 space-y-2">
+                <p className="font-bold text-blue-950 flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5 text-blue-700" />
+                  <span>Option 2: Publish App in Google Cloud (Allows ANY User to use OAuth)</span>
+                </p>
+                <p className="text-[11px] text-blue-900">
+                  Agar aap chahte hain ki koi bhi user bina test user add kiye Google OAuth se connect kare, to Google Cloud Console mein app ko Publish karein:
+                </p>
+                <ol className="list-decimal list-inside space-y-1 text-blue-950 text-[11px]">
+                  <li>
+                    Open <a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank" rel="noreferrer" className="text-blue-700 font-bold underline inline-flex items-center gap-0.5">Google Cloud OAuth Consent Screen <ExternalLink className="w-2.5 h-2.5" /></a>
+                  </li>
+                  <li><strong>"Publishing status"</strong> ke andar <strong>"PUBLISH APP"</strong> button click karein aur confirm karein.</li>
+                  <li>Ab app Production mein aa jayegi aur Error 403 band ho jayega.</li>
+                  <li>Jab users connect karenge, agar <em>"Google hasn't verified this app"</em> aaye to <strong>"Advanced"</strong> &gt; <strong>"Go to applyzen-aqmq.onrender.com (unsafe)"</strong> &gt; <strong>"Continue"</strong> click karke connect kar sakte hain!</li>
+                </ol>
+              </div>
+
+              {/* Option 3: Add to Test Users */}
+              <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-200 space-y-2">
+                <p className="font-bold text-gray-900 flex items-center gap-1.5">
+                  <Smartphone className="w-3.5 h-3.5 text-gray-700" />
+                  <span>Option 3: Add Friend's Email to Test Users (Testing Mode)</span>
+                </p>
+                <ol className="list-decimal list-inside space-y-1 text-gray-600 text-[11px]">
+                  <li>
+                    Open <a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank" rel="noreferrer" className="text-[#05603a] font-bold underline inline-flex items-center gap-0.5">Google Cloud OAuth Consent Screen <ExternalLink className="w-2.5 h-2.5" /></a>
+                  </li>
+                  <li>Scroll down to <strong>"Test users"</strong> section and click <strong>"+ ADD USERS"</strong>.</li>
+                  <li>Enter email (e.g. <code className="bg-gray-200 px-1 py-0.2 rounded font-mono">adityakeshri486@gmail.com</code>).</li>
+                  <li>Click <strong>SAVE</strong>. Friend can now connect via Google OAuth!</li>
+                </ol>
               </div>
             </div>
 
-            <div className="pt-2 text-right">
+            <div className="pt-2 flex items-center justify-between border-t border-gray-100">
+              <button
+                onClick={() => {
+                  setShowHelpModal(false);
+                  openGmailAppPasswordModal();
+                }}
+                className="text-xs font-bold text-[#05603a] hover:underline"
+              >
+                Go to App Password →
+              </button>
               <button
                 onClick={() => setShowHelpModal(false)}
-                className="px-4 py-2 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl"
+                className="px-4 py-2 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl cursor-pointer"
               >
                 Close
               </button>

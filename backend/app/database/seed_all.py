@@ -185,40 +185,7 @@ async def seed_database(custom_uri: str = None):
     logger.info("Applications collection kept clean for authentic application workflows.")
 
     # 7. Seed Notifications
-    notif_count = await db.notifications.count_documents({"user_id": user_id})
-    if notif_count == 0:
-        logger.info("Seeding notifications collection...")
-        notifs = [
-            {
-                "_id": str(uuid.uuid4()),
-                "user_id": user_id,
-                "title": "Stripe Application Ready for Approval",
-                "message": "Form fields have been pre-filled with 96% match score. Review and confirm submission.",
-                "type": "ACTION_REQUIRED",
-                "is_read": False,
-                "created_at": datetime.now(timezone.utc).isoformat()
-            },
-            {
-                "_id": str(uuid.uuid4()),
-                "user_id": user_id,
-                "title": "New Career Opportunity Detected",
-                "message": "Extracted Software Engineer role at Razorpay from recruitment outreach.",
-                "type": "OPPORTUNITY_DETECTED",
-                "is_read": False,
-                "created_at": (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
-            },
-            {
-                "_id": str(uuid.uuid4()),
-                "user_id": user_id,
-                "title": "Ground Truth Verified",
-                "message": "Zero-hallucination verification confirmed all profile credentials match criteria.",
-                "type": "VERIFICATION_SUCCESS",
-                "is_read": True,
-                "created_at": (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat()
-            }
-        ]
-        await db.notifications.insert_many(notifs)
-        logger.info("Notifications seeded successfully.")
+    logger.info("Notifications collection kept clean for authentic real-time user events.")
 
     client.close()
     logger.info("MongoDB cluster initialization and seeding completed successfully!")

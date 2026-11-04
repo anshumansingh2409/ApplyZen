@@ -36,7 +36,7 @@ async def list_opportunities(current_user: dict = Depends(get_current_user)):
 @router.delete("/cleanup-mock")
 async def cleanup_mock_opportunities(current_user: dict = Depends(get_current_user)):
     """
-    Removes demo/mock seeded opportunities (Stripe, Razorpay, Google mock) for the current user.
+    Removes demo/mock seeded opportunities (Stripe, Razorpay, Google mock) and related notifications for the current user.
     """
     user_id = current_user["_id"]
     db = get_database()
@@ -45,19 +45,28 @@ async def cleanup_mock_opportunities(current_user: dict = Depends(get_current_us
         "user_id": user_id,
         "company": {"$in": mock_names}
     })
+    # Also cleanup any mock seeded notifications
+    await db.notifications.delete_many({
+        "user_id": user_id,
+        "$or": [
+            {"title": {"$regex": "Stripe|Razorpay|Google|Ground Truth", "$options": "i"}},
+            {"message": {"$regex": "Stripe|Razorpay|Google|Ground Truth", "$options": "i"}},
+            {"type": {"$in": ["OPPORTUNITY_DETECTED", "ACTION_REQUIRED", "VERIFICATION_SUCCESS"]}}
+        ]
+    })
     # Invalidate cache
     await redis_manager.delete(f"cache:opps:{user_id}")
     return {
         "success": True,
         "deleted_count": res.deleted_count,
-        "message": f"Purged {res.deleted_count} mock/sample opportunities."
+        "message": f"Purged {res.deleted_count} mock/sample opportunities and alerts."
     }
 
 
 @router.delete("/clear-all")
 async def clear_all_opportunities(current_user: dict = Depends(get_current_user)):
     """
-    Clears all opportunities, related applications, and ingested email cache for the current user.
+    Clears all opportunities, related applications, notifications, and ingested email cache for the current user.
     Allows a complete fresh start with their connected mailbox.
     """
     user_id = current_user["_id"]
@@ -65,12 +74,12 @@ async def clear_all_opportunities(current_user: dict = Depends(get_current_user)
     res = await db.opportunities.delete_many({"user_id": user_id})
     await db.applications.delete_many({"user_id": user_id})
     await db.ingested_emails.delete_many({"user_id": user_id})
-    await db.notifications.delete_many({"user_id": user_id, "type": {"$in": ["opportunity", "review_required"]}})
+    await db.notifications.delete_many({"user_id": user_id})
     await redis_manager.delete(f"cache:opps:{user_id}")
     return {
         "success": True,
         "deleted_count": res.deleted_count,
-        "message": f"Cleared {res.deleted_count} opportunities and reset email sync history."
+        "message": f"Cleared {res.deleted_count} opportunities, alerts, and reset email sync history."
     }
 
 

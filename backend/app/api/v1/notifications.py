@@ -27,3 +27,15 @@ async def mark_read(notification_id: str, current_user: dict = Depends(get_curre
 async def mark_all_read(current_user: dict = Depends(get_current_user)):
     await notification_repo.mark_all_read(current_user["_id"])
     return {"success": True}
+
+
+@router.delete("/clear-all")
+async def clear_all_notifications(current_user: dict = Depends(get_current_user)):
+    res = await notification_repo.delete_all_by_user(current_user["_id"])
+    return {"success": True, "deleted_count": res.deleted_count}
+
+
+@router.delete("/{notification_id}")
+async def delete_notification(notification_id: str, current_user: dict = Depends(get_current_user)):
+    await notification_repo.delete_by_id(notification_id, current_user["_id"])
+    return {"success": True}

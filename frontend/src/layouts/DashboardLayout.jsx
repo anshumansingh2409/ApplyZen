@@ -22,6 +22,22 @@ import {
 import { opportunityService } from '../services/opportunity.service';
 import api from '../services/api';
 
+function formatTimeAgo(dateStr) {
+  if (!dateStr) return 'Just now';
+  try {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  } catch (e) {
+    return 'Recently';
+  }
+}
+
 export default function DashboardLayout() {
   const { isAuthenticated, loading, user, logout } = useAuth();
   const navigate = useNavigate();
@@ -40,29 +56,7 @@ export default function DashboardLayout() {
   // Dropdown states
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotificationMenu, setShowNotificationMenu] = useState(false);
-  const [notifications, setNotifications] = useState([
-    {
-      id: '1',
-      title: 'Opportunity Detected',
-      message: 'Extracted Software Engineer role at Stripe from recruitment email.',
-      time: '10m ago',
-      unread: true
-    },
-    {
-      id: '2',
-      title: 'Form Pre-filled',
-      message: 'Razorpay application fields mapped with 98% confidence.',
-      time: '1h ago',
-      unread: true
-    },
-    {
-      id: '3',
-      title: 'Eligibility Verified',
-      message: 'Education CGPA ground truth matched job specifications.',
-      time: '3h ago',
-      unread: false
-    }
-  ]);
+  const [notifications, setNotifications] = useState([]);
 
   const profileMenuRef = useRef(null);
   const notificationMenuRef = useRef(null);
@@ -90,19 +84,21 @@ export default function DashboardLayout() {
           setIntegrationStatus(intRes.data);
         }
         const notifRes = await api.get('/notifications').catch(() => null);
-        if (notifRes?.data && notifRes.data.length > 0) {
+        if (notifRes?.data && Array.isArray(notifRes.data)) {
           setNotifications(
             notifRes.data.slice(0, 5).map((n) => ({
               id: n.id || n._id,
               title: n.title || 'Career Alert',
               message: n.message || n.description,
-              time: 'Just now',
-              unread: !n.read
+              time: formatTimeAgo(n.created_at),
+              unread: !(n.is_read ?? n.read)
             }))
           );
+        } else {
+          setNotifications([]);
         }
       } catch (err) {
-        // Fallback to initial mock notifications
+        setNotifications([]);
       }
     };
     if (isAuthenticated) {
@@ -264,25 +260,33 @@ export default function DashboardLayout() {
 
                   {/* Compact Mobile Push Notification Style */}
                   <div className="max-h-72 overflow-y-auto divide-y divide-gray-50">
-                    {notifications.map((item) => (
-                      <div
-                        key={item.id}
-                        className={`p-3 hover:bg-gray-50/80 transition-colors flex items-start gap-2.5 ${
-                          item.unread ? 'bg-emerald-50/30' : ''
-                        }`}
-                      >
-                        <div className="w-6 h-6 rounded-lg bg-emerald-100 text-[#05603a] flex items-center justify-center shrink-0 mt-0.5">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-xs font-bold text-gray-900 truncate leading-tight">{item.title}</p>
-                            <span className="text-[10px] text-gray-400 shrink-0">{item.time}</span>
-                          </div>
-                          <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">{item.message}</p>
-                        </div>
+                    {notifications.length === 0 ? (
+                      <div className="p-6 text-center text-gray-400 space-y-1">
+                        <Bell className="w-5 h-5 mx-auto text-gray-300 mb-1" />
+                        <p className="text-xs font-semibold text-gray-700">No notifications yet</p>
+                        <p className="text-[10px] text-gray-400">You're all caught up! Real alerts will appear here as opportunities are detected.</p>
                       </div>
-                    ))}
+                    ) : (
+                      notifications.map((item) => (
+                        <div
+                          key={item.id}
+                          className={`p-3 hover:bg-gray-50/80 transition-colors flex items-start gap-2.5 ${
+                            item.unread ? 'bg-emerald-50/30' : ''
+                          }`}
+                        >
+                          <div className="w-6 h-6 rounded-lg bg-emerald-100 text-[#05603a] flex items-center justify-center shrink-0 mt-0.5">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-xs font-bold text-gray-900 truncate leading-tight">{item.title}</p>
+                              <span className="text-[10px] text-gray-400 shrink-0">{item.time}</span>
+                            </div>
+                            <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">{item.message}</p>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
 
                   <div className="px-4 pt-2 pb-1 text-center">

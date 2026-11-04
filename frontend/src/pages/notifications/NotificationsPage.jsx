@@ -47,6 +47,16 @@ export default function NotificationsPage() {
     }
   };
 
+  const handleClearAll = async () => {
+    if (!window.confirm('Clear all notifications?')) return;
+    try {
+      await api.delete('/notifications/clear-all');
+      await fetchNotes();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
@@ -59,12 +69,21 @@ export default function NotificationsPage() {
         </div>
 
         {notifications.length > 0 && (
-          <button
-            onClick={handleMarkAllRead}
-            className="text-xs font-semibold text-[#05603a] hover:underline cursor-pointer"
-          >
-            Mark all as read
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleMarkAllRead}
+              className="text-xs font-semibold text-[#05603a] hover:underline cursor-pointer"
+            >
+              Mark all as read
+            </button>
+            <span className="text-gray-300">|</span>
+            <button
+              onClick={handleClearAll}
+              className="text-xs font-semibold text-red-600 hover:underline cursor-pointer"
+            >
+              Clear all
+            </button>
+          </div>
         )}
       </div>
 
