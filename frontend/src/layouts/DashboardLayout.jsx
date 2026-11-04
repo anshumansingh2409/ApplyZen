@@ -168,33 +168,26 @@ export default function DashboardLayout() {
     <div className="min-h-screen flex bg-[#fbfdfc] overflow-x-hidden">
       <DashboardSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col min-w-0 max-w-full">
+      <div className="flex-1 flex flex-col min-w-0 max-w-full lg:pl-64">
         {/* Top Header */}
-        <header className="h-20 bg-white border-b border-gray-100 px-4 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-30">
+        <header className="h-16 sm:h-20 bg-white border-b border-gray-100 px-3.5 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-30">
+          {/* Left: Mobile Sidebar Toggle */}
           <div className="flex items-center">
-            {/* Hamburger / Close Icon on Mobile */}
             <button
               type="button"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="lg:hidden p-2 -ml-2 mr-2 sm:mr-3 rounded-xl text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
+              className="lg:hidden p-2 -ml-1 rounded-xl text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
               aria-label={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
             >
               {sidebarOpen ? <X className="w-5 h-5 text-gray-700" /> : <Menu className="w-5 h-5 text-gray-700" />}
             </button>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-xl font-bold text-gray-900 tracking-tight">ApplyZen Platform</h1>
-                {isPro && (
-                  <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white px-2 py-0.5 rounded-full shadow-2xs">
-                    PRO
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] sm:text-xs text-gray-500 hidden xs:block">Autonomous Career Operating System</p>
-            </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 lg:gap-4">
+          {/* Center: Open gap */}
+          <div className="flex-1" />
+
+          {/* Right: Actions & User Avatar */}
+          <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 shrink-0">
             {/* Inbox Integration Status Pills */}
             <div className="hidden lg:flex items-center gap-2 bg-gray-50 border border-gray-200/70 p-1.5 rounded-xl text-[11px] font-semibold text-gray-600">
               <Link
@@ -226,7 +219,7 @@ export default function DashboardLayout() {
             <button
               onClick={handleSyncEmails}
               disabled={syncing}
-              className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 text-xs font-semibold rounded-xl bg-emerald-50 text-[#05603a] hover:bg-emerald-100 transition-colors cursor-pointer border border-emerald-200 shadow-2xs"
+              className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-semibold rounded-xl bg-emerald-50 text-[#05603a] hover:bg-emerald-100 transition-colors cursor-pointer border border-emerald-200 shadow-2xs"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">
@@ -241,7 +234,7 @@ export default function DashboardLayout() {
                   setShowNotificationMenu(!showNotificationMenu);
                   setShowProfileMenu(false);
                 }}
-                className="relative p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition-colors cursor-pointer"
+                className="relative p-2 sm:p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition-colors cursor-pointer"
                 aria-label="View notifications"
               >
                 <Bell className="w-4 h-4" />
@@ -254,7 +247,7 @@ export default function DashboardLayout() {
 
               {/* Notification Dropdown Drawer */}
               {showNotificationMenu && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-gray-200 py-3 z-50 divide-y divide-gray-100">
+                <div className="absolute right-0 mt-2 w-[calc(100vw-32px)] max-w-sm sm:w-96 bg-white rounded-2xl shadow-xl border border-gray-200 py-3 z-50 divide-y divide-gray-100">
                   <div className="px-4 py-2 flex items-center justify-between">
                     <div>
                       <h4 className="text-xs font-bold text-gray-900">Notifications</h4>
@@ -269,22 +262,24 @@ export default function DashboardLayout() {
                     </Link>
                   </div>
 
+                  {/* Compact Mobile Push Notification Style */}
                   <div className="max-h-72 overflow-y-auto divide-y divide-gray-50">
                     {notifications.map((item) => (
                       <div
                         key={item.id}
-                        className={`p-3.5 hover:bg-gray-50/80 transition-colors flex items-start gap-3 ${item.unread ? 'bg-emerald-50/30' : ''
-                          }`}
+                        className={`p-3 hover:bg-gray-50/80 transition-colors flex items-start gap-2.5 ${
+                          item.unread ? 'bg-emerald-50/30' : ''
+                        }`}
                       >
-                        <div className="w-7 h-7 rounded-lg bg-emerald-100 text-[#05603a] flex items-center justify-center shrink-0 mt-0.5">
+                        <div className="w-6 h-6 rounded-lg bg-emerald-100 text-[#05603a] flex items-center justify-center shrink-0 mt-0.5">
                           <CheckCircle2 className="w-3.5 h-3.5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-gray-900 leading-snug">{item.title}</p>
-                          <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-2">{item.message}</p>
-                          <span className="text-[10px] text-gray-400 mt-1 block flex items-center gap-1">
-                            <Clock className="w-2.5 h-2.5" /> {item.time}
-                          </span>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs font-bold text-gray-900 truncate leading-tight">{item.title}</p>
+                            <span className="text-[10px] text-gray-400 shrink-0">{item.time}</span>
+                          </div>
+                          <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">{item.message}</p>
                         </div>
                       </div>
                     ))}
@@ -303,26 +298,26 @@ export default function DashboardLayout() {
               )}
             </div>
 
-            {/* Circular User Profile Avatar with Role & Dropdown Menu */}
-            <div className="relative pl-1 border-l border-gray-100" ref={profileMenuRef}>
+            {/* Circular User Profile Avatar - Sleek, Small & Far Right */}
+            <div className="relative pl-0.5 sm:pl-1 border-l border-gray-100" ref={profileMenuRef}>
               <button
                 onClick={() => {
                   setShowProfileMenu(!showProfileMenu);
                   setShowNotificationMenu(false);
                 }}
-                className="flex items-center gap-3 p-1 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer focus:outline-none"
+                className="flex items-center gap-2 p-0.5 sm:p-1 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer focus:outline-none"
               >
                 {/* Circle Avatar with Image / Initials */}
-                <div className="w-9 h-9 rounded-full bg-[#05603a] text-white flex items-center justify-center text-xs font-bold ring-2 ring-emerald-200/70 shadow-2xs relative">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#05603a] text-white flex items-center justify-center text-[11px] sm:text-xs font-bold ring-2 ring-emerald-200/70 shadow-2xs relative shrink-0">
                   {user?.avatar_url ? (
                     <img src={user.avatar_url} alt={user?.full_name} className="w-full h-full rounded-full object-cover" />
                   ) : (
                     <span>{user?.full_name ? user.full_name.charAt(0).toUpperCase() : 'U'}</span>
                   )}
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white"></span>
+                  <span className="absolute bottom-0 right-0 w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500 ring-2 ring-white"></span>
                 </div>
 
-                {/* User Name & Role */}
+                {/* User Name & Role (Desktop only) */}
                 <div className="hidden sm:block text-left">
                   <div className="flex items-center gap-1.5">
                     <p className="text-xs font-bold text-gray-900 leading-tight">{user?.full_name || 'Applicant'}</p>
@@ -337,7 +332,7 @@ export default function DashboardLayout() {
                   </p>
                 </div>
 
-                <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${showProfileMenu ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`hidden sm:block w-3.5 h-3.5 text-gray-400 transition-transform ${showProfileMenu ? 'rotate-180' : ''}`} />
               </button>
 
               {/* Profile Dropdown Menu */}

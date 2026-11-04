@@ -209,7 +209,7 @@ export default function ResumesPage() {
 
         <button
           onClick={() => setShowUpload(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#05603a] hover:bg-[#034a27] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer shrink-0"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#05603a] hover:bg-[#034a27] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer w-full sm:w-auto mx-auto sm:mx-0 shrink-0"
         >
           <Plus className="w-4 h-4" />
           <span>Upload Resume Version</span>
@@ -271,27 +271,27 @@ export default function ResumesPage() {
               }`}
             >
               <div>
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start justify-between gap-2.5 min-w-0">
                   <div
                     onClick={() => setSelectedResume(r)}
-                    className="flex items-center gap-3 cursor-pointer group"
+                    className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group min-w-0 flex-1"
                     title="Click to view in PDF viewer"
                   >
-                    <div className="w-10 h-10 rounded-xl bg-red-50 text-red-700 border border-red-100 flex items-center justify-center font-bold text-xs shrink-0 group-hover:scale-105 transition-transform">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-red-50 text-red-700 border border-red-100 flex items-center justify-center font-bold text-xs shrink-0 group-hover:scale-105 transition-transform">
                       PDF
                     </div>
-                    <div>
-                      <h4 className="text-base font-bold text-gray-900 group-hover:text-[#05603a] transition-colors">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-sm sm:text-base font-bold text-gray-900 group-hover:text-[#05603a] transition-colors truncate">
                         {r.title}
                       </h4>
-                      <span className="text-xs text-gray-400 font-mono">
+                      <span className="text-[11px] sm:text-xs text-gray-400 font-mono truncate block">
                         {r.file_name} • {r.version_label || 'v1.0'}
                       </span>
                     </div>
                   </div>
 
                   {r.is_preferred && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-[#05603a] border border-emerald-200 shrink-0">
+                    <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-[#05603a] border border-emerald-200 shrink-0 whitespace-nowrap self-start mt-0.5">
                       <Star className="w-3 h-3 fill-current" />
                       Preferred
                     </span>

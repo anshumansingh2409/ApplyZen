@@ -52,28 +52,28 @@ export default function DashboardSidebar({ isOpen = false, onClose = () => {} })
         />
       )}
 
-      {/* Sidebar Container */}
+      {/* Sidebar Container - 100% Fixed, never moves on page scroll */}
       <aside
-        className={`fixed lg:sticky top-0 left-0 z-50 lg:z-auto h-screen w-64 bg-white border-r border-gray-100 flex flex-col shrink-0 transition-transform duration-300 ease-in-out ${
-          isOpen ? 'translate-x-0 shadow-2xl lg:shadow-none' : '-translate-x-full lg:translate-x-0'
+        className={`fixed top-0 left-0 z-50 h-screen w-64 bg-white border-r border-gray-100 flex flex-col shrink-0 transition-transform duration-300 ease-in-out ${
+          isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         {/* Brand logo & mobile close button */}
-        <div className="h-20 px-6 flex items-center justify-between border-b border-gray-100 shrink-0">
+        <div className="h-16 sm:h-20 px-6 flex items-center justify-between border-b border-gray-100 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#05603a] flex items-center justify-center shadow-xs">
-              <span className="text-white font-extrabold text-xl tracking-tight">A</span>
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#05603a] flex items-center justify-center shadow-xs">
+              <span className="text-white font-extrabold text-lg sm:text-xl tracking-tight">A</span>
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-lg font-bold text-gray-900 tracking-tight block">ApplyZen</span>
+                <span className="text-base sm:text-lg font-bold text-gray-900 tracking-tight block">ApplyZen</span>
                 {isPro && (
                   <span className="text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-emerald-600 to-teal-500 text-white px-1.5 py-0.2 rounded-full shadow-2xs">
                     PRO
                   </span>
                 )}
               </div>
-              <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">Career OS</span>
+              <span className="text-[10px] sm:text-[11px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">Career OS</span>
             </div>
           </div>
 
@@ -88,8 +88,8 @@ export default function DashboardSidebar({ isOpen = false, onClose = () => {} })
           </button>
         </div>
 
-        {/* Nav Menu divided into 2 distinct sections */}
-        <nav className="flex-1 px-4 py-4 space-y-5 overflow-y-auto">
+        {/* Nav Menu with ultra-thin custom scrollbar */}
+        <nav className="flex-1 px-4 py-4 space-y-5 overflow-y-auto [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-300">
           {/* SECTION 1: Core Operations */}
           <div>
             <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">

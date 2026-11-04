@@ -3,6 +3,22 @@ import { Link } from 'react-router-dom';
 import { Bell, CheckCircle2, ShieldAlert, Sparkles, Clock, ArrowRight, RefreshCw } from 'lucide-react';
 import api from '../../services/api';
 
+function formatTimeAgo(dateStr) {
+  if (!dateStr) return 'Just now';
+  try {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  } catch (e) {
+    return 'Recently';
+  }
+}
+
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -71,13 +87,13 @@ export default function NotificationsPage() {
           {notifications.map((n) => (
             <div
               key={n.id || n._id}
-              className={`p-5 flex items-start justify-between gap-4 transition-colors ${
-                n.is_read ? 'bg-white' : 'bg-emerald-50/30'
+              className={`p-3 sm:p-4 flex items-center justify-between gap-2.5 sm:gap-4 transition-colors hover:bg-gray-50/50 ${
+                n.is_read ? 'bg-white' : 'bg-emerald-50/20'
               }`}
             >
-              <div className="flex items-start gap-3.5">
+              <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
                 <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 ${
                     n.type === 'captcha'
                       ? 'bg-red-100 text-red-700'
                       : n.type === 'review_required'
@@ -86,29 +102,34 @@ export default function NotificationsPage() {
                   }`}
                 >
                   {n.type === 'captcha' ? (
-                    <ShieldAlert className="w-4 h-4" />
+                    <ShieldAlert className="w-3.5 h-3.5" />
                   ) : n.type === 'review_required' ? (
-                    <Clock className="w-4 h-4" />
+                    <Clock className="w-3.5 h-3.5" />
                   ) : (
-                    <Sparkles className="w-4 h-4" />
+                    <Sparkles className="w-3.5 h-3.5" />
                   )}
                 </div>
-                <div>
-                  <h4 className="text-sm font-bold text-gray-900">{n.title}</h4>
-                  <p className="text-xs text-gray-600 mt-0.5 leading-relaxed">{n.message}</p>
-                  <span className="text-[10px] text-gray-400 mt-1 block">
-                    {new Date(n.created_at).toLocaleString()}
-                  </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 text-[10px] text-gray-400 font-medium">
+                    <span className="font-bold text-gray-700">ApplyZen</span>
+                    <span>•</span>
+                    <span>{formatTimeAgo(n.created_at)}</span>
+                    {!n.is_read && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block shrink-0 ml-1" />
+                    )}
+                  </div>
+                  <h4 className="text-xs sm:text-sm font-bold text-gray-900 truncate leading-snug">{n.title}</h4>
+                  <p className="text-[11px] sm:text-xs text-gray-500 line-clamp-1 sm:line-clamp-2 mt-0.5">{n.message}</p>
                 </div>
               </div>
 
               {n.action_url && (
                 <Link
                   to={n.action_url}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#05603a] hover:bg-[#034a27] text-white text-xs font-semibold shrink-0 transition-colors"
+                  className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-[#05603a] hover:bg-[#034a27] text-white text-[10px] sm:text-xs font-semibold shrink-0 transition-colors shadow-2xs whitespace-nowrap"
                 >
                   <span>View</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <ArrowRight className="w-3 h-3" />
                 </Link>
               )}
             </div>
