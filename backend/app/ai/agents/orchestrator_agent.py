@@ -5,6 +5,7 @@ Manages end-to-end multi-agent pipeline and durable workflow state.
 from typing import Dict, Any, Optional
 from datetime import datetime, timezone
 import uuid
+import asyncio
 from app.core.constants import ApplicationStatus, EligibilityStatus, ApplicationMode
 from app.ai.agents.opportunity_agent import opportunity_agent
 from app.ai.agents.eligibility_agent import eligibility_agent
@@ -16,6 +17,8 @@ from app.database.repositories.career_profile_repository import career_profile_r
 from app.database.repositories.resume_repository import resume_repo
 from app.database.repositories.notification_repository import notification_repo
 from app.core.logging import logger
+
+_ORCHESTRATOR_LOCK = asyncio.Lock()
 
 
 class CareerOrchestratorAgent:
@@ -45,56 +48,59 @@ class CareerOrchestratorAgent:
             provider=provider
         )
 
-        # Step 2: Deduplication Check
-        existing_dup = await opportunity_repo.find_duplicate(
-            user_id=user_id,
-            company=opp_data["company"],
-            role=opp_data["role"],
-            job_id=opp_data.get("job_id"),
-            application_url=opp_data.get("application_url"),
-            provider_message_id=provider_message_id
-        )
-        if existing_dup:
-            logger.info(f"Duplicate opportunity detected for {opp_data['company']} - {opp_data['role']}. Skipping workflow creation.")
-            return {"status": "duplicate_skipped", "opportunity_id": existing_dup["_id"]}
+        # Step 2: Deduplication Check & Concurrency Guard
+        async with _ORCHESTRATOR_LOCK:
+            existing_dup = await opportunity_repo.find_duplicate(
+                user_id=user_id,
+                company=opp_data["company"],
+                role=opp_data["role"],
+                job_id=opp_data.get("job_id"),
+                application_url=opp_data.get("application_url"),
+                google_form_url=opp_data.get("google_form_url"),
+                provider_message_id=provider_message_id
+            )
+            if existing_dup:
+                logger.info(f"Duplicate opportunity detected for {opp_data['company']} - {opp_data['role']}. Skipping workflow creation.")
+                return {"status": "duplicate_skipped", "opportunity_id": existing_dup["_id"]}
 
-        # Step 3: Fetch Career Profile & Resumes
-        career_profile = await career_profile_repo.get_by_user_id(user_id) or {}
-        user_resumes = await resume_repo.list_by_user(user_id)
+            # Step 3: Fetch Career Profile & Resumes
+            career_profile = await career_profile_repo.get_by_user_id(user_id) or {}
+            user_resumes = await resume_repo.list_by_user(user_id)
 
-        # Step 4: Eligibility Check
-        elig_status, elig_reasons = await eligibility_agent.evaluate_eligibility(opp_data, career_profile)
+            # Step 4: Eligibility Check
+            elig_status, elig_reasons = await eligibility_agent.evaluate_eligibility(opp_data, career_profile)
 
-        # Step 5: Resume Matching
-        best_resume, match_score, matching_skills, missing_skills = await resume_agent.match_resumes(
-            opp_data, career_profile, user_resumes
-        )
+            # Step 5: Resume Matching
+            best_resume, match_score, matching_skills, missing_skills = await resume_agent.match_resumes(
+                opp_data, career_profile, user_resumes
+            )
 
-        # Persist Opportunity
-        res_id = best_resume.get("_id") if best_resume else None
-        res_name = (best_resume.get("title") or best_resume.get("file_name")) if best_resume else "Career Profile"
+            # Persist Opportunity
+            res_id = best_resume.get("_id") if best_resume else None
+            res_name = (best_resume.get("title") or best_resume.get("file_name")) if best_resume else "Career Profile"
 
-        opp_id = str(uuid.uuid4())
-        opp_record = {
-            "_id": opp_id,
-            "user_id": user_id,
-            **opp_data,
-            "source_email": source_email or opp_data.get("source_email"),
-            "connected_account": connected_account or opp_data.get("connected_account"),
-            "provider": provider or opp_data.get("provider", "gmail"),
-            "email_received_at": email_received_at or opp_data.get("email_received_at") or datetime.now(timezone.utc).isoformat(),
-            "email_timestamp": email_received_at or opp_data.get("email_timestamp") or datetime.now(timezone.utc).isoformat(),
-            "eligibility_status": elig_status.value,
-            "eligibility_reasons": elig_reasons,
-            "match_score": match_score,
-            "matching_skills": matching_skills,
-            "missing_skills": missing_skills,
-            "selected_resume_id": res_id,
-            "selected_resume_name": res_name,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }
-        await opportunity_repo.create(opp_record)
+            opp_id = str(uuid.uuid4())
+            opp_record = {
+                "_id": opp_id,
+                "user_id": user_id,
+                **opp_data,
+                "provider_message_id": provider_message_id or opp_data.get("provider_message_id"),
+                "source_email": source_email or opp_data.get("source_email"),
+                "connected_account": connected_account or opp_data.get("connected_account"),
+                "provider": provider or opp_data.get("provider", "gmail"),
+                "email_received_at": email_received_at or opp_data.get("email_received_at") or datetime.now(timezone.utc).isoformat(),
+                "email_timestamp": email_received_at or opp_data.get("email_timestamp") or datetime.now(timezone.utc).isoformat(),
+                "eligibility_status": elig_status.value,
+                "eligibility_reasons": elig_reasons,
+                "match_score": match_score,
+                "matching_skills": matching_skills,
+                "missing_skills": missing_skills,
+                "selected_resume_id": res_id,
+                "selected_resume_name": res_name,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            await opportunity_repo.create(opp_record)
 
         # Notify user about detected opportunity
         await notification_repo.create({

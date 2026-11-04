@@ -21,7 +21,21 @@ export default function ApplicationsPage() {
   const fetchApps = async () => {
     try {
       const data = await applicationService.list();
-      setApplications(data);
+      
+      // Deduplicate applications
+      const seen = new Set();
+      const deduped = [];
+      for (const a of (data || [])) {
+        const idKey = a.id || a._id;
+        const comp = (a.company || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const role = (a.role || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const key = comp && role ? `${comp}_${role}` : idKey;
+        if (seen.has(idKey) || seen.has(key)) continue;
+        seen.add(idKey);
+        seen.add(key);
+        deduped.push(a);
+      }
+      setApplications(deduped);
     } catch (err) {
       console.error('Error fetching applications:', err);
     } finally {
@@ -122,15 +136,15 @@ export default function ApplicationsPage() {
             return (
               <div
                 key={app.id || app._id}
-                className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-gray-50/50 transition-colors"
+                className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 hover:bg-gray-50/50 transition-colors"
               >
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center font-bold text-[#05603a] text-lg shrink-0">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center font-bold text-[#05603a] text-base sm:text-lg shrink-0">
                     {app.company?.charAt(0) || 'C'}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h4 className="text-base font-bold text-gray-900 truncate">{app.company}</h4>
+                      <h4 className="text-sm sm:text-base font-bold text-gray-900 truncate">{app.company}</h4>
                       <span className="text-xs px-2 py-0.5 rounded bg-emerald-50 text-[#05603a] font-bold shrink-0">
                         {app.match_score || 90}% Match
                       </span>
@@ -142,7 +156,7 @@ export default function ApplicationsPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2.5 shrink-0 flex-wrap justify-end">
+                <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 flex-wrap justify-start sm:justify-end mt-2 md:mt-0">
                   {/* Status Badge */}
                   {app.status === 'SUBMITTED' ? (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-[#05603a] border border-emerald-200 shadow-2xs">

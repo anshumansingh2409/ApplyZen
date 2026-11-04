@@ -396,11 +396,26 @@ class OutlookService:
 
             for msg_id_bytes in recent_ids:
                 msg_id = msg_id_bytes.decode()
+                claim_id = f"outlook_imap_{msg_id}"
+                
+                # Check and atomically claim message to prevent duplicate concurrent processing
                 already_ingested = await db.ingested_emails.find_one({
                     "user_id": user_id,
-                    "message_id": f"outlook_imap_{msg_id}"
+                    "message_id": claim_id
                 })
                 if already_ingested:
+                    continue
+
+                try:
+                    await db.ingested_emails.insert_one({
+                        "user_id": user_id,
+                        "provider": "outlook",
+                        "message_id": claim_id,
+                        "status": "processing",
+                        "is_opportunity": False,
+                        "ingested_at": datetime.now(timezone.utc).isoformat()
+                    })
+                except Exception:
                     continue
 
                 res, data = mail.fetch(msg_id_bytes, "(RFC822)")
@@ -444,15 +459,15 @@ class OutlookService:
                 body_text = "\n\n".join(body_parts).strip()
 
                 if not self._is_career_relevant(subject, body_text, from_header):
-                    await db.ingested_emails.insert_one({
-                        "user_id": user_id,
-                        "provider": "outlook",
-                        "message_id": f"outlook_imap_{msg_id}",
-                        "subject": subject,
-                        "from": from_header,
-                        "is_opportunity": False,
-                        "ingested_at": datetime.now(timezone.utc).isoformat()
-                    })
+                    await db.ingested_emails.update_one(
+                        {"user_id": user_id, "message_id": claim_id},
+                        {"$set": {
+                            "subject": subject,
+                            "from": from_header,
+                            "is_opportunity": False,
+                            "status": "ignored_non_career"
+                        }}
+                    )
                     continue
 
                 # Parse email date
@@ -472,22 +487,23 @@ class OutlookService:
                     user_id=user_id,
                     email_content=full_email_text,
                     source_email=from_header,
-                    provider_message_id=f"outlook_imap_{msg_id}",
+                    provider_message_id=claim_id,
                     email_received_at=received_at_iso,
                     connected_account=email_addr,
                     provider="outlook"
                 )
 
-                await db.ingested_emails.insert_one({
-                    "user_id": user_id,
-                    "provider": "outlook",
-                    "message_id": f"outlook_imap_{msg_id}",
-                    "subject": subject,
-                    "from": from_header,
-                    "is_opportunity": True,
-                    "opportunity_id": process_res.get("opportunity_id"),
-                    "ingested_at": datetime.now(timezone.utc).isoformat()
-                })
+                await db.ingested_emails.update_one(
+                    {"user_id": user_id, "message_id": claim_id},
+                    {"$set": {
+                        "subject": subject,
+                        "from": from_header,
+                        "is_opportunity": True,
+                        "status": "completed",
+                        "opportunity_id": process_res.get("opportunity_id"),
+                        "completed_at": datetime.now(timezone.utc).isoformat()
+                    }}
+                )
 
                 if process_res.get("status") != "duplicate_skipped":
                     synced_count += 1
@@ -600,6 +616,19 @@ class OutlookService:
                 continue
 
             try:
+                # Atomically claim ingestion
+                await db.ingested_emails.insert_one({
+                    "user_id": user_id,
+                    "provider": "outlook",
+                    "message_id": msg_id,
+                    "status": "processing",
+                    "is_opportunity": False,
+                    "ingested_at": datetime.now(timezone.utc).isoformat()
+                })
+            except Exception:
+                continue
+
+            try:
                 scanned_count += 1
                 subject = msg.get("subject") or "Career Opportunity"
                 from_obj = msg.get("from", {}).get("emailAddress", {})
@@ -615,15 +644,15 @@ class OutlookService:
                     body_text = pyhtml.unescape(plain_raw).replace('\xa0', ' ').replace('&nbsp;', ' ').replace('&ndash;', '-')
 
                 if not self._is_career_relevant(subject, body_text, from_header):
-                    await db.ingested_emails.insert_one({
-                        "user_id": user_id,
-                        "provider": "outlook",
-                        "message_id": msg_id,
-                        "subject": subject,
-                        "from": from_header,
-                        "is_opportunity": False,
-                        "ingested_at": datetime.now(timezone.utc).isoformat()
-                    })
+                    await db.ingested_emails.update_one(
+                        {"user_id": user_id, "message_id": msg_id},
+                        {"$set": {
+                            "subject": subject,
+                            "from": from_header,
+                            "is_opportunity": False,
+                            "status": "ignored_non_career"
+                        }}
+                    )
                     continue
 
                 received_at_iso = msg.get("receivedDateTime") or datetime.now(timezone.utc).isoformat()
@@ -644,16 +673,17 @@ class OutlookService:
                     provider="outlook"
                 )
 
-                await db.ingested_emails.insert_one({
-                    "user_id": user_id,
-                    "provider": "outlook",
-                    "message_id": msg_id,
-                    "subject": subject,
-                    "from": from_header,
-                    "is_opportunity": True,
-                    "opportunity_id": process_res.get("opportunity_id"),
-                    "ingested_at": datetime.now(timezone.utc).isoformat()
-                })
+                await db.ingested_emails.update_one(
+                    {"user_id": user_id, "message_id": msg_id},
+                    {"$set": {
+                        "subject": subject,
+                        "from": from_header,
+                        "is_opportunity": True,
+                        "status": "completed",
+                        "opportunity_id": process_res.get("opportunity_id"),
+                        "completed_at": datetime.now(timezone.utc).isoformat()
+                    }}
+                )
 
                 if process_res.get("status") != "duplicate_skipped":
                     synced_count += 1

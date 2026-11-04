@@ -355,7 +355,7 @@ export default function IntegrationsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* Gmail Card */}
         <div
-          className={`p-6 rounded-2xl border transition-all flex flex-col justify-between ${status?.gmail?.connected
+          className={`p-4 sm:p-6 rounded-2xl border transition-all flex flex-col justify-between ${status?.gmail?.connected
             ? 'border-emerald-500 bg-emerald-50/20 shadow-2xs'
             : 'border-gray-200 bg-white shadow-2xs'
             }`}
@@ -451,7 +451,7 @@ export default function IntegrationsPage() {
 
         {/* Outlook Card */}
         <div
-          className={`p-6 rounded-2xl border transition-all flex flex-col justify-between ${status?.outlook?.connected
+          className={`p-4 sm:p-6 rounded-2xl border transition-all flex flex-col justify-between ${status?.outlook?.connected
             ? 'border-blue-500 bg-blue-50/20 shadow-2xs'
             : 'border-gray-200 bg-white shadow-2xs'
             }`}
@@ -551,7 +551,7 @@ export default function IntegrationsPage() {
         </div>
 
         {/* WhatsApp Notification Card */}
-        <div className="p-6 rounded-2xl border border-gray-200 bg-white shadow-2xs flex flex-col justify-between">
+        <div className="p-4 sm:p-6 rounded-2xl border border-gray-200 bg-white shadow-2xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 rounded-2xl bg-[#075e54] flex items-center justify-center text-white shadow-2xs">

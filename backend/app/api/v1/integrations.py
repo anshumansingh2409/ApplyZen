@@ -16,6 +16,8 @@ from app.core.logging import logger
 
 router = APIRouter(prefix="/integrations", tags=["Integrations"])
 
+_ACTIVE_SYNC_USERS = set()
+
 
 class GoogleConnectPayload(BaseModel):
     access_token: Optional[str] = None
@@ -271,30 +273,43 @@ async def sync_inboxes(
     """
     Performs real inbox scan on the user's connected email account (Gmail or Outlook).
     Extracts authentic career emails and adds them to opportunities.
-    No mock data is generated.
+    Includes concurrency mutex to guarantee zero duplicate executions.
     """
     user_id = current_user["_id"]
-    prov = provider.lower()
-
-    if prov in ["gmail", "google"]:
-        return await gmail_service.sync_emails(user_id=user_id, max_results=max_results)
-    elif prov in ["outlook", "microsoft"]:
-        return await outlook_service.sync_emails(user_id=user_id, max_results=max_results)
-    elif prov == "all":
-        gmail_res = await gmail_service.sync_emails(user_id=user_id, max_results=max_results)
-        outlook_res = await outlook_service.sync_emails(user_id=user_id, max_results=max_results)
+    if user_id in _ACTIVE_SYNC_USERS:
+        logger.info(f"Sync already running for user {user_id}. Skipping duplicate concurrent request.")
         return {
             "success": True,
-            "gmail": gmail_res,
-            "outlook": outlook_res,
-            "synced_count": gmail_res.get("synced_count", 0) + outlook_res.get("synced_count", 0)
+            "connected": True,
+            "synced_count": 0,
+            "message": "Inbox synchronization is already in progress. Please wait a moment."
         }
-    else:
-        return {
-            "success": False,
-            "connected": False,
-            "message": f"Inbox sync for '{provider}' is not supported. Please connect Gmail or Outlook."
-        }
+
+    _ACTIVE_SYNC_USERS.add(user_id)
+    try:
+        prov = provider.lower()
+
+        if prov in ["gmail", "google"]:
+            return await gmail_service.sync_emails(user_id=user_id, max_results=max_results)
+        elif prov in ["outlook", "microsoft"]:
+            return await outlook_service.sync_emails(user_id=user_id, max_results=max_results)
+        elif prov == "all":
+            gmail_res = await gmail_service.sync_emails(user_id=user_id, max_results=max_results)
+            outlook_res = await outlook_service.sync_emails(user_id=user_id, max_results=max_results)
+            return {
+                "success": True,
+                "gmail": gmail_res,
+                "outlook": outlook_res,
+                "synced_count": gmail_res.get("synced_count", 0) + outlook_res.get("synced_count", 0)
+            }
+        else:
+            return {
+                "success": False,
+                "connected": False,
+                "message": f"Inbox sync for '{provider}' is not supported. Please connect Gmail or Outlook."
+            }
+    finally:
+        _ACTIVE_SYNC_USERS.discard(user_id)
 
 
 

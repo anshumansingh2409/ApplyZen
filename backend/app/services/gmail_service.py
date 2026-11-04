@@ -460,6 +460,19 @@ class GmailService:
 
             for msg_id, raw_bytes in downloaded_items:
                 try:
+                    # Pre-claim message ingestion to prevent duplicate concurrent runs
+                    try:
+                        await db.ingested_emails.insert_one({
+                            "user_id": user_id,
+                            "provider": "gmail",
+                            "message_id": msg_id,
+                            "status": "processing",
+                            "is_opportunity": False,
+                            "ingested_at": datetime.now(timezone.utc).isoformat()
+                        })
+                    except Exception:
+                        continue
+
                     msg = pyemail.message_from_bytes(raw_bytes)
                     scanned_count += 1
 
@@ -495,15 +508,15 @@ class GmailService:
 
                     # Strict opportunity relevance check
                     if not self._is_career_relevant(subject, body_text, from_header):
-                        await db.ingested_emails.insert_one({
-                            "user_id": user_id,
-                            "provider": "gmail",
-                            "message_id": msg_id,
-                            "subject": subject,
-                            "from": from_header,
-                            "is_opportunity": False,
-                            "ingested_at": datetime.now(timezone.utc).isoformat()
-                        })
+                        await db.ingested_emails.update_one(
+                            {"user_id": user_id, "message_id": msg_id},
+                            {"$set": {
+                                "subject": subject,
+                                "from": from_header,
+                                "is_opportunity": False,
+                                "status": "ignored_non_career"
+                            }}
+                        )
                         continue
 
                     # Parse true email arrival time
@@ -530,16 +543,17 @@ class GmailService:
                         provider="gmail"
                     )
 
-                    await db.ingested_emails.insert_one({
-                        "user_id": user_id,
-                        "provider": "gmail",
-                        "message_id": msg_id,
-                        "subject": subject,
-                        "from": from_header,
-                        "is_opportunity": True,
-                        "opportunity_id": process_res.get("opportunity_id"),
-                        "ingested_at": datetime.now(timezone.utc).isoformat()
-                    })
+                    await db.ingested_emails.update_one(
+                        {"user_id": user_id, "message_id": msg_id},
+                        {"$set": {
+                            "subject": subject,
+                            "from": from_header,
+                            "is_opportunity": True,
+                            "status": "completed",
+                            "opportunity_id": process_res.get("opportunity_id"),
+                            "completed_at": datetime.now(timezone.utc).isoformat()
+                        }}
+                    )
 
                     if process_res.get("status") != "duplicate_skipped":
                         synced_count += 1
@@ -642,6 +656,19 @@ class GmailService:
                     continue
 
                 try:
+                    # Pre-claim message ingestion
+                    await db.ingested_emails.insert_one({
+                        "user_id": user_id,
+                        "provider": "gmail",
+                        "message_id": msg_id,
+                        "status": "processing",
+                        "is_opportunity": False,
+                        "ingested_at": datetime.now(timezone.utc).isoformat()
+                    })
+                except Exception:
+                    continue
+
+                try:
                     msg_url = f"{self.GMAIL_API_BASE}/messages/{msg_id}?format=full"
                     m_resp = await client.get(msg_url, headers=headers)
                     if m_resp.status_code != 200:
@@ -660,15 +687,15 @@ class GmailService:
                         body_text = msg_data.get("snippet", "")
 
                     if not self._is_career_relevant(subject, body_text, from_header):
-                        await db.ingested_emails.insert_one({
-                            "user_id": user_id,
-                            "provider": "gmail",
-                            "message_id": msg_id,
-                            "subject": subject,
-                            "from": from_header,
-                            "is_opportunity": False,
-                            "ingested_at": datetime.now(timezone.utc).isoformat()
-                        })
+                        await db.ingested_emails.update_one(
+                            {"user_id": user_id, "message_id": msg_id},
+                            {"$set": {
+                                "subject": subject,
+                                "from": from_header,
+                                "is_opportunity": False,
+                                "status": "ignored_non_career"
+                            }}
+                        )
                         continue
 
                     # Extract actual email arrival timestamp from Gmail internalDate
@@ -692,16 +719,16 @@ class GmailService:
                     # Strict Date filter: Only process emails on or after October 1st, 2026
                     if received_dt and received_dt < OCTOBER_CUTOFF_DATE:
                         logger.info(f"[GmailService-OAuth] Skipping pre-October 2026 email: {received_dt.isoformat()}")
-                        await db.ingested_emails.insert_one({
-                            "user_id": user_id,
-                            "provider": "gmail",
-                            "message_id": msg_id,
-                            "subject": subject,
-                            "from": from_header,
-                            "is_opportunity": False,
-                            "reason": "before_october_cutoff",
-                            "ingested_at": datetime.now(timezone.utc).isoformat()
-                        })
+                        await db.ingested_emails.update_one(
+                            {"user_id": user_id, "message_id": msg_id},
+                            {"$set": {
+                                "subject": subject,
+                                "from": from_header,
+                                "is_opportunity": False,
+                                "status": "ignored_before_october_cutoff",
+                                "reason": "before_october_cutoff"
+                            }}
+                        )
                         continue
 
                     full_email_text = f"Subject: {subject}\nFrom: {from_header}\nDate: {date_header}\n\n{body_text}"
@@ -715,16 +742,17 @@ class GmailService:
                         provider="gmail"
                     )
 
-                    await db.ingested_emails.insert_one({
-                        "user_id": user_id,
-                        "provider": "gmail",
-                        "message_id": msg_id,
-                        "subject": subject,
-                        "from": from_header,
-                        "is_opportunity": True,
-                        "opportunity_id": process_res.get("opportunity_id"),
-                        "ingested_at": datetime.now(timezone.utc).isoformat()
-                    })
+                    await db.ingested_emails.update_one(
+                        {"user_id": user_id, "message_id": msg_id},
+                        {"$set": {
+                            "subject": subject,
+                            "from": from_header,
+                            "is_opportunity": True,
+                            "status": "completed",
+                            "opportunity_id": process_res.get("opportunity_id"),
+                            "completed_at": datetime.now(timezone.utc).isoformat()
+                        }}
+                    )
 
                     if process_res.get("status") != "duplicate_skipped":
                         synced_count += 1

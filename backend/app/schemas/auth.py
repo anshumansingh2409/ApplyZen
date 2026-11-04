@@ -62,23 +62,3 @@ class VerifyEmailRequest(BaseModel):
 
 class ResendVerificationRequest(BaseModel):
     email: EmailStr
-
-
-class ChangePasswordPayload(BaseModel):
-    current_password: str
-    new_password: str
-
-
-class Toggle2FAPayload(BaseModel):
-    enabled: bool
-
-
-class UserPreferencesPayload(BaseModel):
-    ai_model: Optional[str] = None
-    temperature: Optional[int] = None
-    response_length: Optional[str] = None
-    theme: Optional[str] = None
-    auto_apply: Optional[bool] = None
-    auto_cover_letters: Optional[bool] = None
-    application_strategy: Optional[str] = None
-    confidence_threshold: Optional[str] = None

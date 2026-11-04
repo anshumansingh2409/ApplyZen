@@ -121,7 +121,27 @@ export default function OpportunitiesPage() {
         setLoading(true);
       }
       const data = await opportunityService.list();
-      const sorted = (data || []).sort((a, b) => {
+      
+      // Deduplicate opportunities so identical job emails never appear twice
+      const seenOpps = new Set();
+      const dedupedOpps = [];
+      for (const item of (data || [])) {
+        const idKey = item.id || item._id;
+        const msgKey = item.provider_message_id ? `msg_${item.provider_message_id}` : null;
+        const comp = (item.company || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const role = (item.role || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const jobKey = comp && role ? `job_${comp}_${role}` : null;
+
+        if (seenOpps.has(idKey) || (msgKey && seenOpps.has(msgKey)) || (jobKey && seenOpps.has(jobKey))) {
+          continue;
+        }
+        seenOpps.add(idKey);
+        if (msgKey) seenOpps.add(msgKey);
+        if (jobKey) seenOpps.add(jobKey);
+        dedupedOpps.push(item);
+      }
+
+      const sorted = dedupedOpps.sort((a, b) => {
         const timeA = new Date(a.email_received_at || a.email_timestamp || a.created_at || 0).getTime();
         const timeB = new Date(b.email_received_at || b.email_timestamp || b.created_at || 0).getTime();
         return timeB - timeA;
@@ -338,26 +358,26 @@ export default function OpportunitiesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Detected Opportunities</h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">Detected Opportunities</h2>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">
             Career opportunities extracted from your connected Gmail and Outlook inboxes with attached JDs.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleClearAll}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 hover:bg-red-50 hover:border-red-200 text-gray-700 hover:text-red-600 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border border-gray-200 hover:bg-red-50 hover:border-red-200 text-gray-700 hover:text-red-600 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
             title="Clear all opportunities and reset email ingestion"
           >
-            <Trash2 className="w-3.5 h-3.5 text-red-500" />
-            <span>Clear All Opportunities</span>
+            <Trash2 className="w-3.5 h-3.5 text-red-500 shrink-0" />
+            <span>Clear All</span>
           </button>
 
           <button
             onClick={handleSyncInbox}
             disabled={syncing}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
             title="Scan connected inboxes for new career emails"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-[#05603a] ${syncing ? 'animate-spin' : ''}`} />
@@ -366,10 +386,10 @@ export default function OpportunitiesPage() {
 
           <button
             onClick={() => setShowIngestModal(true)}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#05603a] hover:bg-[#034a27] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2 rounded-xl bg-[#05603a] hover:bg-[#034a27] text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
           >
-            <Plus className="w-4 h-4" />
-            <span>Ingest Career Email</span>
+            <Plus className="w-4 h-4 shrink-0" />
+            <span>Ingest Email</span>
           </button>
         </div>
       </div>
@@ -616,31 +636,31 @@ export default function OpportunitiesPage() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
           {filtered.map((opp) => (
             <div
               key={opp.id || opp._id}
-              className="bg-white p-6 rounded-2xl border border-gray-100 hover:border-emerald-200 shadow-2xs hover:shadow-sm transition-all space-y-4 flex flex-col justify-between"
+              className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 hover:border-emerald-200 shadow-2xs hover:shadow-sm transition-all space-y-4 flex flex-col justify-between min-w-0"
             >
               <div>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center font-bold text-[#05603a] text-lg">
+                <div className="flex flex-col xs:flex-row items-start xs:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center font-bold text-[#05603a] text-base sm:text-lg shrink-0">
                       {opp.company?.charAt(0) || 'C'}
                     </div>
-                    <div>
-                      <h4 className="text-base font-bold text-gray-900 leading-snug">{opp.company}</h4>
-                      <p className="text-xs text-gray-600 font-medium">{opp.role}</p>
+                    <div className="min-w-0">
+                      <h4 className="text-sm sm:text-base font-bold text-gray-900 leading-snug truncate">{opp.company}</h4>
+                      <p className="text-xs text-gray-600 font-medium truncate">{opp.role}</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-wrap justify-end">
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end shrink-0 w-full xs:w-auto">
                     {/* Time Left Badge */}
                     {(() => {
                       const tl = getTimeLeftInfo(opp.deadline);
                       return (
                         <span
-                          className={`px-2.5 py-1 rounded-full text-[11px] font-bold border flex items-center gap-1 shadow-2xs ${
+                          className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] font-bold border flex items-center gap-1 shadow-2xs ${
                             tl.isClosed
                               ? 'bg-red-50 text-red-700 border-red-200'
                               : tl.isMissing
@@ -655,7 +675,7 @@ export default function OpportunitiesPage() {
                       );
                     })()}
 
-                    <span className="px-3 py-1 rounded-full bg-emerald-50 text-[#05603a] font-bold text-xs border border-emerald-200">
+                    <span className="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-emerald-50 text-[#05603a] font-bold text-xs border border-emerald-200">
                       {opp.match_score || 85}% Match
                     </span>
                     <button
@@ -664,7 +684,7 @@ export default function OpportunitiesPage() {
                         handleDeleteOpp(opp.id || opp._id);
                       }}
                       title="Delete opportunity"
-                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                      className="p-1 sm:p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

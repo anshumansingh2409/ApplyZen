@@ -45,22 +45,22 @@ export default function FloatingCopilotButton() {
   return (
     <>
       {/* Floating Action Button strictly styled as in user's image */}
-      <div className="fixed bottom-6 right-6 z-50">
+      <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50">
         <button
           id="applyzen-copilot-trigger"
           onClick={() => setIsOpen(!isOpen)}
           aria-label="Open AI Career Copilot"
-          className="relative w-14 h-14 rounded-full bg-[#05603a] hover:bg-[#034a27] text-white flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 cursor-pointer"
+          className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#05603a] hover:bg-[#034a27] text-white flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 cursor-pointer"
         >
-          {isOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6 fill-current text-white" />}
+          {isOpen ? <X className="w-5 h-5 sm:w-6 sm:h-6" /> : <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 fill-current text-white" />}
           {/* Active green status dot indicator */}
-          <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-emerald-400 border-2 border-white rounded-full"></span>
+          <span className="absolute top-0 right-0 w-3 h-3 sm:w-3.5 sm:h-3.5 bg-emerald-400 border-2 border-white rounded-full"></span>
         </button>
       </div>
 
       {/* Slide-out Assistant Modal / Drawer */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 z-50 w-[380px] sm:w-[420px] max-h-[580px] h-[85vh] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-5">
+        <div className="fixed bottom-18 sm:bottom-24 right-4 sm:right-6 z-50 w-[calc(100vw-32px)] max-w-[420px] max-h-[580px] h-[80vh] sm:h-[85vh] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-5">
           {/* Header */}
           <div className="bg-[#05603a] px-5 py-4 text-white flex items-center justify-between">
             <div className="flex items-center gap-3">

@@ -20,7 +20,7 @@ async def setup_indexes(db):
         await db.opportunities.create_index([("user_id", 1), ("company", 1), ("role", 1)])
         await db.opportunities.create_index([("user_id", 1), ("created_at", -1)])
         await db.opportunities.create_index([("user_id", 1), ("email_received_at", -1)])
-        await db.opportunities.create_index([("provider_message_id", 1)], sparse=True)
+        await db.opportunities.create_index([("user_id", 1), ("provider_message_id", 1)], unique=True, sparse=True)
         await db.opportunities.create_index([("deadline", 1)])
 
         # Ingested Emails (Fast deduplication & incremental tracking)

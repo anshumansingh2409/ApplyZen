@@ -15,7 +15,9 @@ import {
   Mail,
   CheckCircle2,
   Clock,
-  Layers
+  Layers,
+  Menu,
+  X
 } from 'lucide-react';
 import { opportunityService } from '../services/opportunity.service';
 import api from '../services/api';
@@ -23,6 +25,7 @@ import api from '../services/api';
 export default function DashboardLayout() {
   const { isAuthenticated, loading, user, logout } = useAuth();
   const navigate = useNavigate();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [syncing, setSyncing] = React.useState(false);
   const [syncSuccess, setSyncSuccess] = React.useState(false);
 
@@ -162,25 +165,36 @@ export default function DashboardLayout() {
   const unreadCount = notifications.filter((n) => n.unread).length;
 
   return (
-    <div className="min-h-screen flex bg-[#fbfdfc]">
-      <DashboardSidebar />
+    <div className="min-h-screen flex bg-[#fbfdfc] overflow-x-hidden">
+      <DashboardSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 max-w-full">
         {/* Top Header */}
-        <header className="h-20 bg-white border-b border-gray-100 px-6 sm:px-8 flex items-center justify-between sticky top-0 z-40">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-gray-900 tracking-tight">ApplyZen Platform</h1>
-              {isPro && (
-                <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white px-2 py-0.5 rounded-full shadow-2xs">
-                  PRO
-                </span>
-              )}
+        <header className="h-20 bg-white border-b border-gray-100 px-4 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-30">
+          <div className="flex items-center">
+            {/* Hamburger / Close Icon on Mobile */}
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="lg:hidden p-2 -ml-2 mr-2 sm:mr-3 rounded-xl text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
+              aria-label={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
+            >
+              {sidebarOpen ? <X className="w-5 h-5 text-gray-700" /> : <Menu className="w-5 h-5 text-gray-700" />}
+            </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base sm:text-xl font-bold text-gray-900 tracking-tight">ApplyZen Platform</h1>
+                {isPro && (
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white px-2 py-0.5 rounded-full shadow-2xs">
+                    PRO
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] sm:text-xs text-gray-500 hidden xs:block">Autonomous Career Operating System</p>
             </div>
-            <p className="text-xs text-gray-500">Autonomous Career Operating System</p>
           </div>
 
-          <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 lg:gap-4">
             {/* Inbox Integration Status Pills */}
             <div className="hidden lg:flex items-center gap-2 bg-gray-50 border border-gray-200/70 p-1.5 rounded-xl text-[11px] font-semibold text-gray-600">
               <Link
@@ -212,7 +226,7 @@ export default function DashboardLayout() {
             <button
               onClick={handleSyncEmails}
               disabled={syncing}
-              className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl bg-emerald-50 text-[#05603a] hover:bg-emerald-100 transition-colors cursor-pointer border border-emerald-200 shadow-2xs"
+              className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 text-xs font-semibold rounded-xl bg-emerald-50 text-[#05603a] hover:bg-emerald-100 transition-colors cursor-pointer border border-emerald-200 shadow-2xs"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">
@@ -420,7 +434,7 @@ export default function DashboardLayout() {
         )}
 
         {/* Main Content Area */}
-        <main className="flex-1 p-6 sm:p-8 overflow-y-auto">
+        <main className="flex-1 p-3.5 sm:p-6 lg:p-8 overflow-y-auto min-w-0 max-w-full">
           <Outlet />
         </main>
       </div>

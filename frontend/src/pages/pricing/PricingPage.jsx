@@ -85,13 +85,13 @@ export default function PricingPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-8 items-stretch">
         {plans.map((p) => {
           const isCurrent = activePlan.toLowerCase() === p.name.toLowerCase().split(' ')[0];
           return (
             <div
               key={p.id}
-              className={`rounded-2xl p-7 flex flex-col justify-between transition-all bg-white ${
+              className={`rounded-2xl p-5 sm:p-7 flex flex-col justify-between transition-all bg-white ${
                 p.popular
                   ? 'border-2 border-[#05603a] shadow-xl relative'
                   : 'border border-gray-200 shadow-xs'

@@ -225,7 +225,7 @@ export default function ResumesPage() {
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleFileDrop}
         onClick={() => setShowUpload(true)}
-        className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all ${
+        className={`border-2 border-dashed rounded-2xl p-4 sm:p-6 text-center cursor-pointer transition-all ${
           isDragging
             ? 'border-emerald-600 bg-emerald-50/70 scale-[1.01]'
             : 'border-gray-200 bg-white hover:border-emerald-300 hover:bg-gray-50/50'
@@ -262,11 +262,11 @@ export default function ResumesPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
           {resumes.map((r) => (
             <div
               key={r.id || r._id}
-              className={`p-6 rounded-2xl bg-white border transition-all shadow-2xs flex flex-col justify-between hover:shadow-xs ${
+              className={`p-4 sm:p-6 rounded-2xl bg-white border transition-all shadow-2xs flex flex-col justify-between hover:shadow-xs ${
                 r.is_preferred ? 'border-[#05603a] ring-1 ring-[#05603a]/20' : 'border-gray-200'
               }`}
             >

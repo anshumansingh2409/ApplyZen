@@ -56,15 +56,15 @@ export default function AssistantPage() {
   return (
     <div className="max-w-4xl mx-auto h-[calc(100vh-140px)] flex flex-col bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
       {/* Top Banner */}
-      <div className="bg-[#05603a] px-6 py-4 text-white flex items-center justify-between">
+      <div className="bg-[#05603a] px-4 sm:px-6 py-3.5 sm:py-4 text-white flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-            <Bot className="w-6 h-6 text-emerald-200" />
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+            <Bot className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-200" />
           </div>
-          <div>
-            <h2 className="text-base font-bold">ApplyZen AI Career Copilot</h2>
-            <p className="text-xs text-emerald-100 flex items-center gap-1.5 mt-0.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
+          <div className="min-w-0">
+            <h2 className="text-sm sm:text-base font-bold truncate">ApplyZen AI Career Copilot</h2>
+            <p className="text-[11px] sm:text-xs text-emerald-100 flex items-center gap-1.5 mt-0.5 truncate">
+              <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse shrink-0"></span>
               Grounded in your Personal Knowledge Base • Zero Hallucination
             </p>
           </div>
@@ -72,14 +72,14 @@ export default function AssistantPage() {
       </div>
 
       {/* Messages stream */}
-      <div className="flex-1 p-6 overflow-y-auto space-y-5 bg-[#fbfdfc]">
+      <div className="flex-1 p-3.5 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5 bg-[#fbfdfc]">
         {messages.map((m, idx) => (
           <div
             key={idx}
             className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}
           >
             <div
-              className={`max-w-[80%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed ${m.role === 'user'
+              className={`max-w-[92%] sm:max-w-[80%] rounded-2xl px-4 sm:px-5 py-3 sm:py-3.5 text-xs sm:text-sm leading-relaxed ${m.role === 'user'
                   ? 'bg-[#05603a] text-white rounded-br-none shadow-xs'
                   : 'bg-white text-gray-800 shadow-2xs border border-gray-100 rounded-bl-none'
                 }`}
@@ -88,7 +88,7 @@ export default function AssistantPage() {
             </div>
 
             {m.suggestedActions && m.suggestedActions.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-2 max-w-[80%]">
+              <div className="mt-2.5 sm:mt-3 flex flex-wrap gap-1.5 sm:gap-2 max-w-[95%] sm:max-w-[80%]">
                 {m.suggestedActions.map((act, aIdx) => (
                   <button
                     key={aIdx}
