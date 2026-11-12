@@ -20,7 +20,7 @@ export default function FormAutofillModal({ isOpen, onClose, opportunity, userPr
 
   if (!isOpen || !opportunity) return null;
 
-  const formUrl = opportunity.google_form_url || opportunity.application_url;
+  const formUrl = opportunity.prefilled_url || opportunity.google_form_url || opportunity.application_url;
   const company = opportunity.company || 'Hiring Organization';
   const role = opportunity.role || 'Software Engineer';
 
@@ -122,7 +122,7 @@ export default function FormAutofillModal({ isOpen, onClose, opportunity, userPr
       }
     }
   });
-  alert('ApplyZen Auto-Filled ' + filledCount + ' fields from your Career Background!');
+  alert('applyZen Auto-Filled ' + filledCount + ' fields from your Career Background!');
 })();`;
   };
 

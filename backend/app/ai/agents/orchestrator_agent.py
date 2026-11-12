@@ -3,7 +3,7 @@ ApplyZen Career Orchestrator Agent
 Manages end-to-end multi-agent pipeline and durable workflow state.
 """
 from typing import Dict, Any, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import uuid
 import asyncio
 from app.core.constants import ApplicationStatus, EligibilityStatus, ApplicationMode
@@ -97,25 +97,21 @@ class CareerOrchestratorAgent:
                 "missing_skills": missing_skills,
                 "selected_resume_id": res_id,
                 "selected_resume_name": res_name,
+                "status": "DETECTED",
+                "form_status": "ANALYZING_FORM",
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }
+            # Step 1: Immediately persist opportunity so it appears in UI right away
             await opportunity_repo.create(opp_record)
 
-        # Notify user about detected opportunity
-        await notification_repo.create({
-            "_id": str(uuid.uuid4()),
-            "user_id": user_id,
-            "title": f"New Opportunity: {opp_data['role']} at {opp_data['company']}",
-            "message": f"Match Score: {match_score}%. Status: {elig_status.value}.",
-            "type": "opportunity",
-            "priority": "normal",
-            "is_read": False,
-            "action_url": f"/opportunities/{opp_id}",
-            "created_at": datetime.now(timezone.utc).isoformat()
-        })
+        # Invalidate Redis cache so newly detected opportunity shows in Opportunities section immediately
+        from app.cache.redis import redis_manager
+        await redis_manager.delete(f"cache:opps:{user_id}")
 
-        # Step 6: Form Auto-Filling & Autonomous Application Submission
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        # Step 2: Form Link Inspection & Auto-Fill with verified Ground Truth
         from app.database.repositories.user_repository import user_repo
         real_user = await user_repo.get_by_id(user_id) or {}
         user_doc = {
@@ -123,30 +119,98 @@ class CareerOrchestratorAgent:
             "email": real_user.get("email") or "anshumansingh2409@gmail.com"
         }
 
+        target_form_url = opp_data.get("google_form_url") or opp_data.get("application_url")
+        mapped_fields = []
+        prefilled_url = target_form_url
+        form_title = f"{opp_data['company']} Application Form"
+
+        if target_form_url:
+            try:
+                logger.info(f"[Orchestrator] AI Agent opening & inspecting form link for {opp_data['company']}: {target_form_url}")
+                inspect_res = await form_agent.inspect_and_auto_fill(
+                    form_url=target_form_url,
+                    company=opp_data["company"],
+                    role=opp_data["role"],
+                    career_profile=career_profile,
+                    user=user_doc,
+                    selected_resume=best_resume or {},
+                    opp_context=opp_data
+                )
+                mapped_fields = inspect_res.get("form_fields", [])
+                prefilled_url = inspect_res.get("prefilled_url") or target_form_url
+                form_title = inspect_res.get("form_title") or form_title
+                logger.info(f"[Orchestrator] Mapped {len(mapped_fields)} fields with Ground Truth. Prefilled URL generated.")
+            except Exception as form_err:
+                logger.error(f"[Orchestrator] Form inspection error: {form_err}. Falling back to standard mapping.")
+                mapped_fields = await form_agent.map_form_fields([], career_profile, user_doc, best_resume or {})
+
+        # Step 3: Check Submission Mode (User Accept vs Auto Submit)
+        automation_policy = career_profile.get("automation_policy", {})
+        app_mode = automation_policy.get("application_mode", ApplicationMode.APPROVAL_MODE.value)
+        is_auto_mode = (app_mode in [ApplicationMode.AUTOMATIC_MODE.value, "AUTOMATIC_MODE", "auto_submit"])
+
         app_id = str(uuid.uuid4())
-        # Prepare comprehensive standard campus & off-campus form inputs
-        detected_inputs = [
-            {"name": "full_name", "label": "Full Name", "type": "text"},
-            {"name": "email", "label": "Email Address", "type": "email"},
-            {"name": "phone", "label": "Mobile Phone", "type": "tel"},
-            {"name": "college", "label": "College / University Name", "type": "text"},
-            {"name": "degree", "label": "Degree / Course", "type": "text"},
-            {"name": "major", "label": "Branch / Stream", "type": "text"},
-            {"name": "graduation_year", "label": "Year of Passing / Batch", "type": "text"},
-            {"name": "cgpa", "label": "Current CGPA / Percentage", "type": "text"},
-            {"name": "10th_marks", "label": "10th Percentage / Board", "type": "text"},
-            {"name": "12th_marks", "label": "12th Percentage / Board", "type": "text"},
-            {"name": "skills", "label": "Technical Skills", "type": "text"},
-            {"name": "linkedin_profile", "label": "LinkedIn Profile URL", "type": "url"},
-            {"name": "github_profile", "label": "GitHub Profile / Portfolio", "type": "url"},
-            {"name": "work_authorization", "label": "Eligible to work in India", "type": "text"},
-            {"name": "resume_attachment", "label": "Resume", "type": "file"}
-        ]
+        scheduled_submit_at = None
+        now_dt = datetime.now(timezone.utc)
 
-        mapped_fields = await form_agent.map_form_fields(detected_inputs, career_profile, user_doc, best_resume or {})
-        now_iso = datetime.now(timezone.utc).isoformat()
-        gform_url = opp_data.get("google_form_url") or opp_data.get("application_url")
+        if is_auto_mode:
+            # Mode B: Auto-submit 1 minute before deadline (or 1 min buffer countdown)
+            submission_status = ApplicationStatus.AUTO_READY.value
+            opp_status = "AUTO_READY"
 
+            deadline_str = opp_data.get("deadline")
+            scheduled_dt = None
+            if deadline_str:
+                try:
+                    parsed_deadline = datetime.fromisoformat(deadline_str.replace("Z", "+00:00"))
+                    one_min_before = parsed_deadline - timedelta(minutes=1)
+                    if one_min_before > now_dt + timedelta(seconds=30):
+                        scheduled_dt = one_min_before
+                except Exception:
+                    pass
+
+            if not scheduled_dt:
+                # Default safety window: 1 minute from now
+                scheduled_dt = now_dt + timedelta(minutes=1)
+
+            scheduled_submit_at = scheduled_dt.isoformat()
+
+            # Schedule background execution task
+            from app.services.application_service import application_service
+            delay_sec = max(5, int((scheduled_dt - now_dt).total_seconds()))
+            asyncio.create_task(application_service.schedule_auto_submit(app_id, user_id, delay_sec))
+
+            # Auto mode notification
+            await notification_repo.create({
+                "_id": str(uuid.uuid4()),
+                "user_id": user_id,
+                "title": f"Auto-Submit Scheduled: {opp_data['company']}",
+                "message": f"Form pre-filled with Career Ground Truth. Auto-submitting in 1 min (or 1 min before deadline). Check & review anytime.",
+                "type": "auto_submit_scheduled",
+                "priority": "normal",
+                "is_read": False,
+                "action_url": f"/opportunities/{opp_id}",
+                "created_at": now_iso
+            })
+        else:
+            # Mode A: User Accept (Manual Review & Accept)
+            submission_status = ApplicationStatus.READY_FOR_REVIEW.value
+            opp_status = "READY_FOR_REVIEW"
+
+            # User accept notification
+            await notification_repo.create({
+                "_id": str(uuid.uuid4()),
+                "user_id": user_id,
+                "title": f"Check & Accept: {opp_data['company']} Form Ready",
+                "message": f"AI Copilot opened and filled {opp_data['company']}'s form with verified Career Ground Truth. Review fields and accept to submit.",
+                "type": "ready_for_review",
+                "priority": "high",
+                "is_read": False,
+                "action_url": f"/opportunities/{opp_id}",
+                "created_at": now_iso
+            })
+
+        # Step 4: Persist Application Document
         app_record = {
             "_id": app_id,
             "user_id": user_id,
@@ -155,32 +219,36 @@ class CareerOrchestratorAgent:
             "company": opp_data["company"],
             "role": opp_data["role"],
             "application_url": opp_data.get("application_url"),
-            "google_form_url": gform_url,
-            "status": ApplicationStatus.SUBMITTED.value,
+            "google_form_url": prefilled_url,
+            "prefilled_url": prefilled_url,
+            "form_title": form_title,
+            "status": submission_status,
             "resume_used_id": res_id,
             "resume_used_name": res_name,
             "match_score": match_score,
             "form_fields": mapped_fields,
-            "submission_notes": "Form auto-filled with Ground Truth profile and submitted automatically via ApplyZen Copilot.",
-            "submitted_at": now_iso,
+            "submission_mode": "AUTOMATIC_MODE" if is_auto_mode else "APPROVAL_MODE",
+            "scheduled_submit_at": scheduled_submit_at,
+            "submission_notes": "Form auto-filled with Ground Truth profile by ApplyZen Form Copilot.",
+            "submitted_at": None,
             "timeline": [
                 {
-                    "title": "Recruitment Email Detected",
-                    "description": f"Extracted drive notice for {opp_data['company']} ({opp_data['role']}).",
+                    "title": "Recruitment Notice Detected",
+                    "description": f"Extracted opportunity for {opp_data['company']} ({opp_data['role']}).",
                     "timestamp": email_received_at or now_iso,
                     "status_tag": ApplicationStatus.DETECTED.value
                 },
                 {
-                    "title": "Form Auto-Filled by ApplyZen Copilot",
-                    "description": f"Prefilled candidate credentials ({user_doc['full_name']} • {user_doc['email']}) with verified Ground Truth.",
+                    "title": "Google Form Inspected & Pre-filled",
+                    "description": f"Extracted {len(mapped_fields)} questions and mapped with verified Career Ground Truth.",
                     "timestamp": now_iso,
                     "status_tag": "FORM_AUTO_FILLED"
                 },
                 {
-                    "title": "Application Submitted ✓",
-                    "description": "Form automatically submitted. You can check all submitted fields, add extra notes, or re-verify anytime.",
+                    "title": "Auto-Submission Scheduled (1 Min Buffer)" if is_auto_mode else "Awaiting Candidate Review & Acceptance",
+                    "description": f"Auto-submitting at {scheduled_submit_at} (1 min before deadline/timer)." if is_auto_mode else "Form is ready for candidate inspection and final accept.",
                     "timestamp": now_iso,
-                    "status_tag": ApplicationStatus.SUBMITTED.value
+                    "status_tag": submission_status
                 }
             ],
             "ai_activity_log": [
@@ -191,15 +259,9 @@ class CareerOrchestratorAgent:
                     "timestamp": now_iso
                 },
                 {
-                    "activity": f"Auto-filled form inputs with 100% verified ground truth",
+                    "activity": f"Opened form URL, extracted {len(mapped_fields)} questions and generated prefilled link",
                     "agent_name": "FormAgent",
                     "confidence": 0.99,
-                    "timestamp": now_iso
-                },
-                {
-                    "activity": "Application automatically marked Submitted as requested by user",
-                    "agent_name": "CareerOrchestrator",
-                    "confidence": 1.0,
                     "timestamp": now_iso
                 }
             ],
@@ -210,26 +272,30 @@ class CareerOrchestratorAgent:
         }
         await application_repo.create(app_record)
 
-        # Update opportunity with application_id and status APPLIED
+        # Step 5: Update Opportunity with prefilled URL, application_id and current status
         await opportunity_repo.update(opp_id, {
             "application_id": app_id,
-            "status": "APPLIED"
+            "google_form_url": prefilled_url,
+            "prefilled_url": prefilled_url,
+            "form_fields": mapped_fields,
+            "form_title": form_title,
+            "form_status": "FORM_FILLED",
+            "status": opp_status,
+            "scheduled_submit_at": scheduled_submit_at,
+            "updated_at": now_iso
         })
 
-        # Create notification
-        await notification_repo.create({
-            "_id": str(uuid.uuid4()),
-            "user_id": user_id,
-            "title": f"Application Auto-Submitted: {opp_data['company']}",
-            "message": f"Form for {opp_data['role']} automatically filled & submitted ({match_score}% match). Check or edit anytime.",
-            "type": "application_submitted",
-            "priority": "normal",
-            "is_read": False,
-            "action_url": f"/applications/{app_id}",
-            "created_at": now_iso
-        })
+        # Invalidate caches
+        await redis_manager.delete(f"cache:opps:{user_id}")
+        await redis_manager.delete(f"cache:opp:{opp_id}")
 
-        return {"status": "application_created", "opportunity_id": opp_id, "application_id": app_id, "submission_status": "SUBMITTED"}
+        return {
+            "status": "application_created",
+            "opportunity_id": opp_id,
+            "application_id": app_id,
+            "submission_status": submission_status,
+            "prefilled_url": prefilled_url
+        }
 
 
 career_orchestrator = CareerOrchestratorAgent()

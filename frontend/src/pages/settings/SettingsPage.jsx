@@ -38,10 +38,35 @@ export default function SettingsPage() {
   const [outlookConnected, setOutlookConnected] = useState(false);
 
   // Automation Preferences State (Image 3)
+  const [submissionMode, setSubmissionMode] = useState('APPROVAL_MODE');
   const [autoApply, setAutoApply] = useState(true);
   const [autoCoverLetters, setAutoCoverLetters] = useState(true);
   const [appStrategy, setAppStrategy] = useState('Quality Focused (Highly Targeted)');
   const [confidenceThreshold, setConfidenceThreshold] = useState('Very High (90%+ Match)');
+
+  useEffect(() => {
+    const fetchAutomationSettings = async () => {
+      try {
+        const res = await api.get('/career-profile');
+        if (res.data?.automation_policy?.application_mode) {
+          setSubmissionMode(res.data.automation_policy.application_mode);
+        }
+      } catch (err) {
+        console.warn('Could not load profile automation policy:', err);
+      }
+    };
+    fetchAutomationSettings();
+  }, []);
+
+  const handleSubmissionModeChange = async (newMode) => {
+    setSubmissionMode(newMode);
+    try {
+      await api.post('/career-profile/submission-mode', { mode: newMode });
+      showToast(`Submission mode set to: ${newMode === 'APPROVAL_MODE' ? 'User Accept (Review First)' : 'Auto Submit (Timed 1m)'}`);
+    } catch (err) {
+      showToast('Failed to update submission mode.');
+    }
+  };
 
   // Security & Privacy State (Image 2)
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(user?.two_factor_enabled || false);
@@ -451,6 +476,76 @@ export default function SettingsPage() {
           <div className="flex items-center gap-2">
             <Bot className="w-4 h-4 text-[#05603a]" />
             <h4 className="text-xs font-black uppercase tracking-wider text-gray-900">AUTOMATION PREFERENCES</h4>
+          </div>
+
+          {/* Submission Mode Selection: User Accept vs Auto Submit */}
+          <div className="space-y-2.5">
+            <div>
+              <h5 className="text-xs font-bold text-gray-900">Form Submission Mode</h5>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Choose how ApplyZen AI handles form submission after inspecting and pre-filling Google Forms with Career Ground Truth.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              {/* Option 1: User Accept */}
+              <div
+                onClick={() => handleSubmissionModeChange('APPROVAL_MODE')}
+                className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
+                  submissionMode === 'APPROVAL_MODE'
+                    ? 'border-emerald-600 bg-emerald-50/30 shadow-2xs'
+                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
+                      submissionMode === 'APPROVAL_MODE' ? 'border-emerald-600' : 'border-gray-300'
+                    }`}
+                  >
+                    {submissionMode === 'APPROVAL_MODE' && <div className="w-2 h-2 rounded-full bg-emerald-600"></div>}
+                  </div>
+                  <div>
+                    <h6 className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                      <span>User Accept Mode</span>
+                      <span className="px-1.5 py-0.2 rounded text-[9.5px] bg-emerald-100 text-emerald-800 font-bold">Manual Review</span>
+                    </h6>
+                    <p className="text-[11px] text-gray-500 mt-1 leading-snug">
+                      AI Agent inspects the Google Form, pre-fills verified Career Ground Truth, and sends notifications. You review and click Accept to submit.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Option 2: Auto Submit */}
+              <div
+                onClick={() => handleSubmissionModeChange('AUTOMATIC_MODE')}
+                className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
+                  submissionMode === 'AUTOMATIC_MODE'
+                    ? 'border-emerald-600 bg-emerald-50/30 shadow-2xs'
+                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
+                      submissionMode === 'AUTOMATIC_MODE' ? 'border-emerald-600' : 'border-gray-300'
+                    }`}
+                  >
+                    {submissionMode === 'AUTOMATIC_MODE' && <div className="w-2 h-2 rounded-full bg-emerald-600"></div>}
+                  </div>
+                  <div>
+                    <h6 className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                      <span>Auto Submit (Timed)</span>
+                      <span className="px-1.5 py-0.2 rounded text-[9.5px] bg-amber-100 text-amber-800 font-bold">1 Min Buffer</span>
+                    </h6>
+                    <p className="text-[11px] text-gray-500 mt-1 leading-snug">
+                      AI Agent inspects & pre-fills Google Form. Submits automatically 1 minute before the deadline (or after a 1-minute safety window).
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Toggle 1: Auto Apply */}

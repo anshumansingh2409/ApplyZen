@@ -173,7 +173,7 @@ export default function CareerProfilePage() {
           ],
           projects: data.projects && data.projects.length > 0 ? data.projects : [
             {
-              title: 'ApplyZen Autonomous Career Copilot',
+              title: 'applyZen Autonomous Career Copilot',
               description: 'Autonomous career management platform that automates application workflows with zero hallucinations and real-time DOM form filling.',
               technologies: ['React', 'FastAPI', 'MongoDB', 'Playwright'],
               github_url: 'https://github.com/applicant/applyzen',
@@ -358,7 +358,7 @@ export default function CareerProfilePage() {
             </span>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Fill your details once. ApplyZen uses this verified data to autofill job applications with zero errors.
+            Fill your details once. applyZen uses this verified data to autofill job applications with zero errors.
           </p>
         </div>
 

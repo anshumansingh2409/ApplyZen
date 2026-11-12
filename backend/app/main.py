@@ -18,6 +18,18 @@ from app.api.router import api_router
 from app.workers.email_worker import start_worker
 
 
+async def auto_submit_monitor_loop():
+    from app.services.application_service import application_service
+    while True:
+        try:
+            await application_service.process_due_auto_submits()
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"[AutoSubmitMonitor] Error: {e}")
+        await asyncio.sleep(5)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Connect to MongoDB, Redis, and set up indexes
@@ -29,11 +41,14 @@ async def lifespan(app: FastAPI):
     
     # Start Real-time Email Ingestion Worker in background
     worker_task = asyncio.create_task(start_worker())
+    # Start Auto-submit countdown monitor in background
+    auto_submit_task = asyncio.create_task(auto_submit_monitor_loop())
     
     yield
     # Shutdown
     logger.info(f"Shutting down {settings.APP_NAME}...")
     worker_task.cancel()
+    auto_submit_task.cancel()
     await redis_manager.close()
     await db_manager.close_database_connection()
 

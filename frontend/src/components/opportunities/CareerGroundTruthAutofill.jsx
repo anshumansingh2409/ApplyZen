@@ -51,7 +51,7 @@ export default function CareerGroundTruthAutofill({ formUrl, opportunity }) {
   const github = profile?.github_url || 'https://github.com/anshumans24';
   const resumeName = opportunity?.selected_resume_name || 'Anshuman_Singh_Resume.pdf';
 
-  const fields = [
+  const baseFields = [
     { label: 'Full Name', value: fullName, icon: User },
     { label: 'Email Address', value: email, icon: Mail },
     { label: 'Mobile Number', value: phone, icon: Phone },
@@ -66,6 +66,26 @@ export default function CareerGroundTruthAutofill({ formUrl, opportunity }) {
     { label: 'GitHub Profile', value: github, icon: Github },
     { label: 'Resume Used', value: resumeName, icon: FileText }
   ];
+
+  // If AI agent inspected company's specific form, display those authentic matched questions!
+  const fields = (opportunity?.form_fields && opportunity.form_fields.length > 0)
+    ? opportunity.form_fields.map((f) => {
+        const key = (f.field_label || f.field_name || '').toLowerCase();
+        let Icon = User;
+        if (key.includes('mail')) Icon = Mail;
+        else if (key.includes('phone') || key.includes('mobile') || key.includes('whatsapp')) Icon = Phone;
+        else if (key.includes('college') || key.includes('university') || key.includes('institute')) Icon = GraduationCap;
+        else if (key.includes('degree') || key.includes('cgpa') || key.includes('score') || key.includes('batch') || key.includes('year')) Icon = Award;
+        else if (key.includes('location') || key.includes('state') || key.includes('city')) Icon = MapPin;
+        else if (key.includes('linkedin')) Icon = Linkedin;
+        else if (key.includes('github') || key.includes('code')) Icon = Github;
+        return {
+          label: f.field_label || f.field_name,
+          value: f.value || 'None',
+          icon: Icon
+        };
+      })
+    : baseFields;
 
   const handleCopySingle = (label, val) => {
     navigator.clipboard.writeText(val);
@@ -113,14 +133,15 @@ export default function CareerGroundTruthAutofill({ formUrl, opportunity }) {
             <span>{allCopied ? 'Copied All Fields!' : 'Copy All Fields'}</span>
           </button>
 
-          {formUrl && (
+          {(opportunity?.prefilled_url || formUrl) && (
             <a
-              href={formUrl}
+              href={opportunity?.prefilled_url || formUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
+              title="Opens Google Form with Career Ground Truth pre-filled"
             >
-              <span>Open Google Form</span>
+              <span>{opportunity?.prefilled_url ? 'Open Pre-filled Form' : 'Open Google Form'}</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
           )}

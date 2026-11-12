@@ -7,7 +7,7 @@ export default function AssistantPage() {
     {
       role: 'assistant',
       content:
-        "Hello! I am your ApplyZen AI Career Copilot. I have real-time access to your verified Career Knowledge Base, active applications, resume match scores, and interview timelines. What can I answer for you today?",
+        "Hello! I am your applyZen AI Career Copilot. I have real-time access to your verified Career Knowledge Base, active applications, resume match scores, and interview timelines. What can I answer for you today?",
       suggestedActions: [
         'How many active applications do I have?',
         'Which applications need my attention?',
@@ -62,7 +62,7 @@ export default function AssistantPage() {
             <Bot className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-200" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-sm sm:text-base font-bold truncate">ApplyZen AI Career Copilot</h2>
+            <h2 className="text-sm sm:text-base font-bold truncate">applyZen AI Career Copilot</h2>
             <p className="text-[11px] sm:text-xs text-emerald-100 flex items-center gap-1.5 mt-0.5 truncate">
               <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse shrink-0"></span>
               Grounded in your Personal Knowledge Base • Zero Hallucination

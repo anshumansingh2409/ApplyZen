@@ -67,7 +67,7 @@ export default function OAuthCallbackPage() {
           <div className="space-y-4">
             <Loader2 className="w-8 h-8 text-[#05603a] animate-spin mx-auto" />
             <h3 className="text-base font-bold text-gray-900">Completing Sign-In...</h3>
-            <p className="text-xs text-gray-500">Connecting your account with ApplyZen...</p>
+            <p className="text-xs text-gray-500">Connecting your account with applyZen...</p>
           </div>
         )}
 

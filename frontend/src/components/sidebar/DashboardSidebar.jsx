@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
   Sparkles,
@@ -16,6 +16,7 @@ import {
   X
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import BrandLogo from '../common/BrandLogo';
 
 export default function DashboardSidebar({ isOpen = false, onClose = () => {} }) {
   const { logout, user } = useAuth();
@@ -54,28 +55,15 @@ export default function DashboardSidebar({ isOpen = false, onClose = () => {} })
 
       {/* Sidebar Container - 100% Fixed, never moves on page scroll */}
       <aside
-        className={`fixed top-0 left-0 z-50 h-screen w-64 bg-white border-r border-gray-100 flex flex-col shrink-0 transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 z-50 h-screen w-64 bg-white border-r border-gray-200 flex flex-col shrink-0 transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         {/* Brand logo & mobile close button */}
-        <div className="h-16 sm:h-20 px-6 flex items-center justify-between border-b border-gray-100 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#05603a] flex items-center justify-center shadow-xs">
-              <span className="text-white font-extrabold text-lg sm:text-xl tracking-tight">A</span>
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-base sm:text-lg font-bold text-gray-900 tracking-tight block">ApplyZen</span>
-                {isPro && (
-                  <span className="text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-emerald-600 to-teal-500 text-white px-1.5 py-0.2 rounded-full shadow-2xs">
-                    PRO
-                  </span>
-                )}
-              </div>
-              <span className="text-[10px] sm:text-[11px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">Career OS</span>
-            </div>
-          </div>
+        <div className="h-16 sm:h-20 px-5 flex items-center justify-between border-b border-gray-200 shrink-0">
+          <Link to="/dashboard" className="flex items-center gap-2 group">
+            <BrandLogo size="sm" showBadge={isPro ? "PRO" : null} />
+          </Link>
 
           {/* Close button on mobile */}
           <button

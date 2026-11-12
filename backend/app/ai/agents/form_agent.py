@@ -8,7 +8,32 @@ from app.core.constants import ConfidenceLevel
 
 
 class FormAgent:
-    version: str = "v1.1"
+    version: str = "v1.2"
+
+    async def inspect_and_auto_fill(
+        self,
+        form_url: str,
+        company: str,
+        role: str,
+        career_profile: Dict[str, Any],
+        user: Dict[str, Any],
+        selected_resume: Any = None,
+        opp_context: Any = None
+    ) -> Dict[str, Any]:
+        """
+        Orchestrates opening the Google Form, inspecting requested questions,
+        grounding with candidate's Career Ground Truth, and generating the prefilled URL.
+        """
+        from app.services.google_form_service import google_form_service
+        return await google_form_service.inspect_and_prefill_form(
+            form_url=form_url,
+            company=company,
+            role=role,
+            career_profile=career_profile,
+            user_doc=user,
+            resume_doc=selected_resume,
+            opp_context=opp_context
+        )
 
     async def map_form_fields(
         self,

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, RefreshCw, ArrowRight, AlertCircle, KeyRound } from 'lucide-react';
 import { authService } from '../../services/auth.service';
 import { useAuth } from '../../context/AuthContext';
+import BrandLogo from '../common/BrandLogo';
 
 export default function VerifyEmailCard({ email, onVerified }) {
   const [otp, setOtp] = useState('');
@@ -53,11 +54,8 @@ export default function VerifyEmailCard({ email, onVerified }) {
   return (
     <div className="w-full max-w-lg mx-auto bg-white rounded-3xl p-8 sm:p-12 shadow-sm border border-gray-100 text-center font-sans">
       {/* Brand Header */}
-      <div className="flex items-center justify-center gap-2 mb-8">
-        <svg className="w-8 h-8 text-[#05603a]" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M17 8C8 10 5.9 16.17 3.82 21.34L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2.25-13 3.25S2 11.5 2 13.5s1.75 3.75 1.75 3.75C7 8 17 8 17 8z"/>
-        </svg>
-        <span className="text-2xl font-bold tracking-tight text-[#05603a]">ApplyZen</span>
+      <div className="flex justify-center mb-8">
+        <BrandLogo size="md" />
       </div>
 
       {/* Main Headline */}

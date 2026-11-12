@@ -5,6 +5,7 @@ import {
   Building2,
   Calendar,
   CheckCircle2,
+  Check,
   AlertCircle,
   FileText,
   ExternalLink,
@@ -82,6 +83,21 @@ export default function OpportunityDetailPage() {
   const [showJdModal, setShowJdModal] = useState(false);
   const [showAutofillModal, setShowAutofillModal] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleAcceptOpportunity = async () => {
+    setSubmitting(true);
+    try {
+      const res = await api.post(`/opportunities/${id}/accept`);
+      alert(res.data?.message || 'Application submitted successfully!');
+      const refreshed = await opportunityService.get(id);
+      setOpportunity(refreshed);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to submit application.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     const fetchOpp = async () => {
@@ -129,7 +145,7 @@ export default function OpportunityDetailPage() {
     );
   }
 
-  const formUrl = opportunity.google_form_url || (opportunity.application_url && opportunity.application_url.includes('forms') ? opportunity.application_url : null);
+  const formUrl = opportunity.prefilled_url || opportunity.google_form_url || (opportunity.application_url && opportunity.application_url.includes('forms') ? opportunity.application_url : null);
   const jdFileName = opportunity.jd_attachment_filename || `${opportunity.company}_Job_Description.pdf`;
 
   return (
@@ -239,6 +255,71 @@ export default function OpportunityDetailPage() {
             </span>
             <span>View JD (PDF)</span>
           </button>
+        </div>
+      </div>
+
+      {/* Autonomous Submission Mode & AI Auto-Fill Action Banner */}
+      <div className="bg-gradient-to-r from-purple-50/70 via-white to-emerald-50/60 rounded-2xl border border-purple-200/90 p-5 shadow-2xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-base">🤖</span>
+              <h3 className="text-sm sm:text-base font-bold text-gray-900">
+                AI Form Inspector & Ground Truth Auto-Fill
+              </h3>
+              {opportunity.prefilled_url && (
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-200">
+                  ✓ Pre-filled Ready
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-600 leading-relaxed">
+              {opportunity.status === 'READY_FOR_REVIEW'
+                ? 'AI Agent opened and inspected this company’s Google Form, then pre-filled each required field with your verified Career Ground Truth. Review fields and accept to submit.'
+                : opportunity.status === 'AUTO_READY'
+                ? 'Auto-Submit Mode Active: Google Form pre-filled with Career Ground Truth. Scheduled to auto-submit 1 minute before deadline (or countdown).'
+                : (opportunity.status === 'APPLIED' || opportunity.status === 'SUBMITTED')
+                ? 'Application has been successfully submitted. You can re-open the pre-filled form anytime.'
+                : 'AI Agent is actively inspecting and mapping form fields.'}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+            {formUrl && (
+              <a
+                href={formUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-2xs transition-colors"
+                title="Opens the actual Google Form in browser with candidate fields pre-filled"
+              >
+                <span>📝 Open Pre-filled Form</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
+
+            {(opportunity.status === 'READY_FOR_REVIEW' || opportunity.status === 'AUTO_READY') && (
+              <button
+                type="button"
+                onClick={handleAcceptOpportunity}
+                disabled={submitting}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>{submitting ? 'Submitting...' : (opportunity.status === 'AUTO_READY' ? 'Submit Now' : 'Accept & Submit Application')}</span>
+              </button>
+            )}
+
+            {opportunity.application_id && (
+              <Link
+                to={`/applications/${opportunity.application_id}`}
+                className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition-colors"
+              >
+                <span>Application Detail</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 

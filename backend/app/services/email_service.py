@@ -19,17 +19,14 @@ class EmailService:
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Verify your ApplyZen email</title>
+  <title>Verify your applyZen email</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 40px 15px; color: #1e293b;">
   <div style="max-width: 540px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
     
     <!-- Header -->
     <div style="background-color: #05603a; padding: 32px 24px; text-align: center;">
-      <div style="display: inline-block; width: 44px; height: 44px; background: rgba(255,255,255,0.15); border-radius: 12px; line-height: 44px; font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 12px;">
-        A
-      </div>
-      <h1 style="color: #ffffff; font-size: 22px; margin: 0; font-weight: 700; letter-spacing: -0.5px;">ApplyZen</h1>
+      <h1 style="color: #ffffff; font-size: 26px; margin: 0; font-weight: 800; letter-spacing: -0.5px;">applyZen</h1>
       <p style="color: #a7f3d0; font-size: 13px; margin: 6px 0 0 0;">Autonomous Career Copilot</p>
     </div>
 
@@ -37,7 +34,7 @@ class EmailService:
     <div style="padding: 36px 32px;">
       <h2 style="font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 0; margin-bottom: 14px;">Great, now verify your email</h2>
       <p style="color: #475569; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
-        Hi <strong>{first_name}</strong>, thanks for creating an ApplyZen account! Enter your 6-digit verification code below or click the button to activate your account.
+        Hi <strong>{first_name}</strong>, thanks for creating an applyZen account! Enter your 6-digit verification code below or click the button to activate your account.
       </p>
 
       <!-- 6 Digit OTP Box -->
@@ -54,7 +51,7 @@ class EmailService:
       </div>
 
       <p style="color: #64748b; font-size: 13px; line-height: 1.5; margin-top: 24px;">
-        If you didn't create an ApplyZen account, you can safely ignore this email.
+        If you didn't create an applyZen account, you can safely ignore this email.
       </p>
 
       <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #f1f5f9;">
@@ -67,7 +64,7 @@ class EmailService:
     <!-- Footer -->
     <div style="background-color: #f8fafc; padding: 16px 24px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="color: #94a3b8; font-size: 12px; margin: 0;">
-        &copy; 2026 ApplyZen AI Inc. All rights reserved.
+        &copy; 2026 applyZen AI Inc. All rights reserved.
       </p>
     </div>
   </div>
@@ -125,7 +122,7 @@ class EmailService:
 
     async def send_verification_email(self, to_email: str, name: str, token: str, otp: str) -> bool:
         verify_url = f"{settings.FRONTEND_URL}/verify-email?token={token}&email={to_email}"
-        subject = "Great, now verify your email - ApplyZen"
+        subject = "Great, now verify your email - applyZen"
         html = self._create_verification_html(name, verify_url, otp)
 
         loop = asyncio.get_event_loop()
@@ -155,16 +152,13 @@ class EmailService:
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Reset your ApplyZen password</title>
+  <title>Reset your applyZen password</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 40px 15px; color: #1e293b;">
   <div style="max-width: 540px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
     <!-- Header -->
     <div style="background-color: #05603a; padding: 32px 24px; text-align: center;">
-      <div style="display: inline-block; width: 44px; height: 44px; background: rgba(255,255,255,0.15); border-radius: 12px; line-height: 44px; font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 12px;">
-        A
-      </div>
-      <h1 style="color: #ffffff; font-size: 22px; margin: 0; font-weight: 700; letter-spacing: -0.5px;">ApplyZen</h1>
+      <h1 style="color: #ffffff; font-size: 26px; margin: 0; font-weight: 800; letter-spacing: -0.5px;">applyZen</h1>
       <p style="color: #a7f3d0; font-size: 13px; margin: 6px 0 0 0;">Password Reset Request</p>
     </div>
 
@@ -172,7 +166,7 @@ class EmailService:
     <div style="padding: 36px 32px;">
       <h2 style="font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 0; margin-bottom: 14px;">Reset your password</h2>
       <p style="color: #475569; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
-        Hi <strong>{first_name}</strong>, we received a request to reset your ApplyZen account password. Enter the 6-digit code below to set a new password.
+        Hi <strong>{first_name}</strong>, we received a request to reset your applyZen account password. Enter the 6-digit code below to set a new password.
       </p>
 
       <!-- 6 Digit OTP Box -->
@@ -190,7 +184,7 @@ class EmailService:
     <!-- Footer -->
     <div style="background-color: #f8fafc; padding: 16px 24px; text-align: center; border-top: 1px solid #e2e8f0;">
       <p style="color: #94a3b8; font-size: 12px; margin: 0;">
-        &copy; 2026 ApplyZen AI Inc. All rights reserved.
+        &copy; 2026 applyZen AI Inc. All rights reserved.
       </p>
     </div>
   </div>
@@ -199,7 +193,7 @@ class EmailService:
 
     async def send_password_reset_email(self, to_email: str, name: str, token: str, otp: str) -> bool:
         reset_url = f"{settings.FRONTEND_URL}/login?tab=reset&token={token}&email={to_email}"
-        subject = "Reset your ApplyZen password"
+        subject = "Reset your applyZen password"
         html = self._create_password_reset_html(name, reset_url, otp)
 
         loop = asyncio.get_event_loop()

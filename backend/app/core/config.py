@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = "ApplyZen"
+    APP_NAME: str = "applyZen"
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
     PORT: int = 8000

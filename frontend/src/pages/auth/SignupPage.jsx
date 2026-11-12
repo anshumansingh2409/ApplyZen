@@ -7,6 +7,7 @@ import MicrosoftAuthModal from '../../components/auth/MicrosoftAuthModal';
 import VerifyEmailCard from '../../components/auth/VerifyEmailCard';
 import { googleAuthClient } from '../../services/googleAuth';
 import { microsoftAuthClient } from '../../services/microsoftAuth';
+import BrandLogo from '../../components/common/BrandLogo';
 
 export default function SignupPage() {
   const [fullName, setFullName] = useState('');
@@ -120,12 +121,9 @@ export default function SignupPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         {/* Brand */}
-        <Link to="/" className="inline-flex items-center gap-2 mb-4">
-          <svg className="w-8 h-8 text-[#05603a]" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M17 8C8 10 5.9 16.17 3.82 21.34L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2.25-13 3.25S2 11.5 2 13.5s1.75 3.75 1.75 3.75C7 8 17 8 17 8z"/>
-          </svg>
-          <span className="text-2xl font-bold tracking-tight text-[#05603a]">ApplyZen</span>
-        </Link>
+        <div className="flex justify-center mb-4">
+          <BrandLogo to="/" size="md" />
+        </div>
         <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Create your Career Copilot</h2>
         <p className="mt-1.5 text-sm text-gray-600">
           Supercharge your career opportunities with autonomous intelligence

@@ -5,6 +5,7 @@ import {
   Search,
   Filter,
   CheckCircle2,
+  Check,
   Calendar,
   Building2,
   ExternalLink,
@@ -184,11 +185,23 @@ export default function OpportunitiesPage() {
   }, []);
 
   const handleOpenFormWithAutofill = (opp) => {
-    const url = opp.google_form_url || opp.application_url;
+    const url = opp.prefilled_url || opp.google_form_url || opp.application_url;
     if (url) {
       window.open(url, '_blank', 'noopener,noreferrer');
     }
     setAutofillOpp(opp);
+  };
+
+  const handleAcceptOpp = async (opp) => {
+    const oppId = opp.id || opp._id;
+    try {
+      const res = await api.post(`/opportunities/${oppId}/accept`);
+      setToastMessage(res.data?.message || 'Application accepted and submitted!');
+      await fetchOpps(true);
+    } catch (err) {
+      console.error(err);
+      setToastMessage(err.response?.data?.message || 'Failed to submit application.');
+    }
   };
 
   const handleCleanupMock = async () => {
@@ -693,15 +706,15 @@ export default function OpportunitiesPage() {
 
                 {/* Form Badge (Left of View JD), View JD Button & Recruiter Source (all unified in one inline strip) */}
                 <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                  {(opp.google_form_url || (opp.application_url && (opp.application_url.includes('forms') || opp.application_url.includes('docs.google.com') || opp.application_url.includes('http')))) && (
+                  {(opp.google_form_url || opp.prefilled_url || (opp.application_url && (opp.application_url.includes('forms') || opp.application_url.includes('docs.google.com') || opp.application_url.includes('http')))) && (
                     <button
                       type="button"
                       onClick={() => handleOpenFormWithAutofill(opp)}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-purple-600 hover:bg-purple-700 text-white font-semibold text-[10px] transition-colors cursor-pointer shadow-2xs"
-                      title="Open attached Google Form & launch Career Auto-fill Copilot"
+                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-purple-600 hover:bg-purple-700 text-white font-semibold text-[10px] transition-colors cursor-pointer shadow-2xs"
+                      title={opp.prefilled_url ? "Open pre-filled Google Form (fields populated from Career Ground Truth)" : "Open Google Form"}
                     >
                       <span className="text-[9.5px]">📝</span>
-                      <span>Google Form</span>
+                      <span>{opp.prefilled_url ? 'Google Form (Pre-filled)' : 'Google Form'}</span>
                       <ExternalLink className="w-2.5 h-2.5 text-purple-200 shrink-0" />
                     </button>
                   )}
@@ -716,6 +729,39 @@ export default function OpportunitiesPage() {
                     </span>
                     <span>View JD</span>
                   </button>
+
+                  {/* Mode & Submission Status Badges / Actions */}
+                  {opp.status === 'READY_FOR_REVIEW' && (
+                    <button
+                      type="button"
+                      onClick={() => handleAcceptOpp(opp)}
+                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] transition-colors cursor-pointer shadow-2xs"
+                      title="AI has filled the form with Ground Truth. Click to Accept & Submit now."
+                    >
+                      <Check className="w-2.5 h-2.5" />
+                      <span>Accept & Submit</span>
+                    </button>
+                  )}
+
+                  {opp.status === 'AUTO_READY' && (
+                    <span
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-bold text-[10px]"
+                      title="Auto-submit active: Form pre-filled with Ground Truth. Submitting before deadline."
+                    >
+                      <Clock className="w-2.5 h-2.5 text-amber-600 shrink-0" />
+                      <span>Auto-Submit (1m buffer)</span>
+                    </span>
+                  )}
+
+                  {(opp.status === 'APPLIED' || opp.status === 'SUBMITTED') && (
+                    <span
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-[10px]"
+                      title="Application has been successfully submitted."
+                    >
+                      <Check className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                      <span>Applied ✓</span>
+                    </span>
+                  )}
 
                   {opp.source_email && (
                     <a

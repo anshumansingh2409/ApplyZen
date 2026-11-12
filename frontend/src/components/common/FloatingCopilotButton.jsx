@@ -7,7 +7,7 @@ export default function FloatingCopilotButton() {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: 'Hi there! I am your ApplyZen AI Career Copilot. Ask me about your active applications, missing skills, or resume match scores!'
+      content: 'Hi there! I am your applyZen AI Career Copilot. Ask me about your active applications, missing skills, or resume match scores!'
     }
   ]);
   const [input, setInput] = useState('');
@@ -68,7 +68,7 @@ export default function FloatingCopilotButton() {
                 <Bot className="w-5 h-5 text-emerald-200" />
               </div>
               <div>
-                <h3 className="font-bold text-[15px] leading-tight">ApplyZen Copilot</h3>
+                <h3 className="font-bold text-[15px] leading-tight">applyZen Copilot</h3>
                 <p className="text-xs text-emerald-100 flex items-center gap-1.5 mt-0.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
                   Grounded • Zero-Hallucination

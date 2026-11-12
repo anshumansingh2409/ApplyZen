@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft,
   CheckCircle2,
+  Check,
   AlertTriangle,
   Clock,
   Send,
@@ -110,6 +111,25 @@ export default function ApplicationDetailPage() {
     }
   };
 
+  const handleAcceptAndSubmit = async () => {
+    setSaving(true);
+    try {
+      const updatedFields = fields.map((f) => ({
+        field_name: f.field_name,
+        value: f.value,
+        user_edited_value: f.user_edited_value
+      }));
+      await applicationService.review(id, updatedFields, true);
+      showNotification('Application accepted and submitted successfully!');
+      await fetchApp();
+    } catch (err) {
+      console.error('Failed to submit application:', err);
+      showNotification(err.response?.data?.message || 'Failed to submit application.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="text-center py-20 text-gray-400">
@@ -130,7 +150,7 @@ export default function ApplicationDetailPage() {
     );
   }
 
-  const formUrl = application.google_form_url || application.application_url;
+  const formUrl = application.prefilled_url || application.google_form_url || application.application_url;
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -152,10 +172,27 @@ export default function ApplicationDetailPage() {
           <div>
             <div className="flex items-center gap-3 flex-wrap">
               <h2 className="text-2xl font-bold text-gray-900 tracking-tight">{application.company}</h2>
-              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-[#05603a] border border-emerald-200">
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#05603a]" />
-                <span>Submitted</span>
-              </span>
+
+              {application.status === 'READY_FOR_REVIEW' && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                  <Clock className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Awaiting Your Acceptance</span>
+                </span>
+              )}
+
+              {application.status === 'AUTO_READY' && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-800 border border-purple-200">
+                  <Clock className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Auto-Submit (Timed 1m)</span>
+                </span>
+              )}
+
+              {(application.status === 'SUBMITTED' || application.status === 'APPLIED') && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-[#05603a] border border-emerald-200">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#05603a]" />
+                  <span>Submitted ✓</span>
+                </span>
+              )}
             </div>
             <p className="text-sm font-medium text-gray-600 mt-1">{application.role}</p>
             <p className="text-xs text-gray-400 mt-0.5">
@@ -176,21 +213,47 @@ export default function ApplicationDetailPage() {
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-xs transition-colors"
-              title="Open Google Form in new tab"
+              title="Open Google Form with candidate fields pre-filled"
             >
-              <span>📝 Open Form</span>
+              <span>{application.prefilled_url ? '📝 Open Pre-filled Form' : '📝 Open Form'}</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
+          )}
+
+          {application.status === 'READY_FOR_REVIEW' && (
+            <button
+              type="button"
+              onClick={handleAcceptAndSubmit}
+              disabled={saving}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+              title="Click to accept all pre-filled fields and submit application"
+            >
+              <Check className="w-4 h-4" />
+              <span>{saving ? 'Submitting...' : 'Accept & Submit'}</span>
+            </button>
+          )}
+
+          {application.status === 'AUTO_READY' && (
+            <button
+              type="button"
+              onClick={handleAcceptAndSubmit}
+              disabled={saving}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+              title="Submit immediately without waiting for auto-submit countdown"
+            >
+              <Check className="w-4 h-4" />
+              <span>{saving ? 'Submitting...' : 'Submit Now'}</span>
+            </button>
           )}
 
           <button
             type="button"
             onClick={handleSaveChanges}
             disabled={saving}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#05603a] hover:bg-[#034a27] text-white text-xs font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
-            <span>{saving ? 'Saving...' : 'Save Changes'}</span>
+            <span>{saving ? 'Saving...' : 'Save Edits'}</span>
           </button>
         </div>
       </div>

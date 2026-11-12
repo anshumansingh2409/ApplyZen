@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet, Link } from 'react-router-dom';
 import PublicNavbar from '../components/navbar/PublicNavbar';
 import FloatingCopilotButton from '../components/common/FloatingCopilotButton';
+import BrandLogo from '../components/common/BrandLogo';
 
 export default function PublicLayout() {
   return (
@@ -12,14 +13,11 @@ export default function PublicLayout() {
         <Outlet />
       </main>
 
-      <footer className="bg-gray-50 border-t border-gray-100 py-14">
+      <footer className="bg-gray-50 border-t border-gray-200 py-14">
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-10">
           <div>
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-[#05603a] flex items-center justify-center">
-                <span className="text-white font-extrabold text-lg">A</span>
-              </div>
-              <span className="text-lg font-bold text-gray-900">ApplyZen</span>
+              <BrandLogo to="/" size="sm" />
             </div>
             <p className="mt-3 text-sm text-gray-500 leading-relaxed">
               The AI Career Operating System that converts career emails into validated, policy-controlled job applications with zero hallucination guarantee.
@@ -52,7 +50,7 @@ export default function PublicLayout() {
               <li><span className="text-emerald-700 font-medium">✓ Zero-Hallucination Policy</span></li>
               <li><span className="text-emerald-700 font-medium">✓ Ethical Human-in-Loop</span></li>
               <li><span className="text-emerald-700 font-medium">✓ No Automated CAPTCHA Bypass</span></li>
-              <li><span className="text-gray-400 text-xs">© 2026 ApplyZen. All rights reserved.</span></li>
+              <li><span className="text-gray-400 text-xs">© 2026 applyZen. All rights reserved.</span></li>
             </ul>
           </div>
         </div>

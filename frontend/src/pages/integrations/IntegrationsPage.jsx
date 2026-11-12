@@ -348,7 +348,7 @@ export default function IntegrationsPage() {
         <div className="flex items-start gap-2.5">
           <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-[#05603a] shrink-0 mt-0.5" />
           <p className="text-xs text-gray-700 leading-relaxed w-full">
-            <strong className="text-gray-900">Real Ingestion Guarantee:</strong> ApplyZen scans strictly for career & recruitment messages. Personal emails are ignored and never stored. You can connect via <strong>Google OAuth</strong> or instantly using a <strong>16-letter Gmail App Password</strong>.
+            <strong className="text-gray-900">Real Ingestion Guarantee:</strong> applyZen scans strictly for career & recruitment messages. Personal emails are ignored and never stored. You can connect via <strong>Google OAuth</strong> or instantly using a <strong>16-letter Gmail App Password</strong>.
           </p>
         </div>
         <div className="flex justify-end pt-0.5">
@@ -627,7 +627,7 @@ export default function IntegrationsPage() {
               <p className="font-bold">How to generate 16-letter password:</p>
               <ol className="list-decimal list-inside space-y-0.5 text-[11px]">
                 <li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="underline font-bold text-[#05603a] inline-flex items-center gap-0.5">Google App Passwords <ExternalLink className="w-2.5 h-2.5" /></a></li>
-                <li>App name enter karein: <code className="bg-amber-100 px-1 py-0.5 rounded">ApplyZen</code></li>
+                <li>App name enter karein: <code className="bg-amber-100 px-1 py-0.5 rounded">applyZen</code></li>
                 <li>Click <strong>Create</strong> and copy the 16-letter password.</li>
               </ol>
             </div>

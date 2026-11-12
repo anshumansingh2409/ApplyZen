@@ -3,6 +3,7 @@ import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { CheckCircle2, AlertCircle, Loader2, ArrowRight, RefreshCw, Mail } from 'lucide-react';
 import { authService } from '../../services/auth.service';
 import { useAuth } from '../../context/AuthContext';
+import BrandLogo from '../../components/common/BrandLogo';
 
 export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
@@ -79,12 +80,9 @@ export default function VerifyEmailPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         {/* Brand */}
-        <Link to="/" className="inline-flex items-center gap-2 mb-6">
-          <svg className="w-8 h-8 text-[#05603a]" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M17 8C8 10 5.9 16.17 3.82 21.34L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2.25-13 3.25S2 11.5 2 13.5s1.75 3.75 1.75 3.75C7 8 17 8 17 8z"/>
-          </svg>
-          <span className="text-2xl font-bold tracking-tight text-[#05603a]">ApplyZen</span>
-        </Link>
+        <div className="flex justify-center mb-6">
+          <BrandLogo to="/" size="md" />
+        </div>
       </div>
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -102,7 +100,7 @@ export default function VerifyEmailPage() {
               </div>
               <h2 className="text-2xl font-extrabold text-gray-900">Email Verified!</h2>
               <p className="text-sm text-gray-600 leading-relaxed">
-                Your email has been successfully verified. You're ready to automate your career applications with ApplyZen.
+                Your email has been successfully verified. You're ready to automate your career applications with applyZen.
               </p>
               <div className="pt-2">
                 <button

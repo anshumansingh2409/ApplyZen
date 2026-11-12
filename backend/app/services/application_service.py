@@ -5,12 +5,14 @@ Coordinates review submissions, automatic mode triggers, status transitions, and
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 import uuid
+import asyncio
 from app.core.constants import ApplicationStatus
 from app.database.repositories.application_repository import application_repo
 from app.database.repositories.notification_repository import notification_repo
 from app.automation.browser.playwright_manager import playwright_manager
 from app.core.exceptions import NotFoundError, ActionRequiredError
 from app.cache.locks import DistributedLock
+from app.core.logging import logger
 
 
 class ApplicationService:
@@ -71,6 +73,18 @@ class ApplicationService:
                     confidence=1.0
                 )
 
+                # Update associated Opportunity status to APPLIED and clear cache
+                opp_id = app.get("opportunity_id")
+                if opp_id:
+                    from app.database.repositories.opportunity_repository import opportunity_repo
+                    await opportunity_repo.update(opp_id, {
+                        "status": "APPLIED",
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    })
+                    from app.cache.redis import redis_manager
+                    await redis_manager.delete(f"cache:opps:{user_id}")
+                    await redis_manager.delete(f"cache:opp:{opp_id}")
+
                 # Notification
                 await notification_repo.create({
                     "_id": str(uuid.uuid4()),
@@ -94,6 +108,45 @@ class ApplicationService:
                 "updated_at": datetime.now(timezone.utc).isoformat()
             })
             return {"success": True, "status": app.get("status"), "message": "Form changes saved"}
+
+    async def schedule_auto_submit(self, app_id: str, user_id: str, delay_sec: int):
+        """
+        Asynchronously waits until the deadline buffer / countdown expires (e.g. 1 minute)
+        and then automatically triggers submission.
+        """
+        logger.info(f"[AutoSubmitScheduler] Scheduled submission for application {app_id} in {delay_sec} seconds")
+        await asyncio.sleep(delay_sec)
+        try:
+            app = await application_repo.get_by_id(app_id)
+            if app and app.get("status") == ApplicationStatus.AUTO_READY.value:
+                logger.info(f"[AutoSubmitScheduler] Safety window passed. Submitting application {app_id}...")
+                fields = app.get("form_fields", [])
+                await self.review_and_submit(app_id, user_id, fields, approved=True)
+                logger.info(f"[AutoSubmitScheduler] Application {app_id} successfully auto-submitted!")
+        except Exception as e:
+            logger.error(f"[AutoSubmitScheduler] Failed to auto-submit app {app_id}: {e}")
+
+    async def process_due_auto_submits(self):
+        """
+        Durable periodic poller checking for applications scheduled for auto-submit whose timestamp has arrived.
+        """
+        from app.database.mongodb import get_database
+        db = get_database()
+        now_iso = datetime.now(timezone.utc).isoformat()
+        try:
+            cursor = db.applications.find({
+                "status": ApplicationStatus.AUTO_READY.value,
+                "scheduled_submit_at": {"$lte": now_iso}
+            })
+            due_apps = await cursor.to_list(20)
+            for app in due_apps:
+                app_id = app["_id"]
+                user_id = app["user_id"]
+                fields = app.get("form_fields", [])
+                logger.info(f"[AutoSubmitPoller] Executing due auto-submit for app {app_id} ({app.get('company')})")
+                await self.review_and_submit(app_id, user_id, fields, approved=True)
+        except Exception as e:
+            logger.error(f"[AutoSubmitPoller] Periodic check error: {e}")
 
     async def simulate_incoming_update(
         self,

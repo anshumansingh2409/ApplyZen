@@ -72,7 +72,7 @@ export default function LandingPage() {
 
             {/* Subtext */}
             <p className="text-lg text-gray-600 leading-relaxed max-w-xl">
-              ApplyZen is your AI career copilot that finds opportunities, creates the perfect resume, fills applications automatically, and tracks everything in one place.
+              applyZen is your AI career copilot that finds opportunities, creates the perfect resume, fills applications automatically, and tracks everything in one place.
             </p>
 
             {/* Action Buttons */}
@@ -209,7 +209,7 @@ export default function LandingPage() {
             <span className="text-xs font-bold uppercase tracking-wider text-[#05603a]">Interactive Demonstration</span>
             <h2 className="text-3xl font-extrabold text-gray-900 mt-2">Test Email-to-Opportunity Extraction Live</h2>
             <p className="text-sm text-gray-600 mt-2">
-              Paste any job recruitment email below to watch ApplyZen classify the role, verify candidate eligibility, and match skills in real-time.
+              Paste any job recruitment email below to watch applyZen classify the role, verify candidate eligibility, and match skills in real-time.
             </p>
           </div>
 
@@ -295,7 +295,7 @@ export default function LandingPage() {
                       to="/signup"
                       className="px-4 py-2 bg-[#05603a] text-white text-xs font-semibold rounded-lg hover:bg-[#034a27]"
                     >
-                      Automate with ApplyZen →
+                      Automate with applyZen →
                     </Link>
                   </div>
                 </div>
@@ -318,7 +318,7 @@ export default function LandingPage() {
             Engineered for Precision, Safety, and User Control
           </h2>
           <p className="text-base text-gray-600 mt-3">
-            ApplyZen replaces repetitive form-filling while giving you complete authority over critical, sensitive, and legal career decisions.
+            applyZen replaces repetitive form-filling while giving you complete authority over critical, sensitive, and legal career decisions.
           </p>
         </div>
 
@@ -374,7 +374,7 @@ export default function LandingPage() {
             </div>
             <h3 className="text-xl font-bold text-gray-900 mb-2">Ethical Human-in-Loop CAPTCHA</h3>
             <p className="text-sm text-gray-600 leading-relaxed">
-              Zero automated CAPTCHA bypassing. If security challenges appear, ApplyZen safely pauses the session, delivers context, and resumes the moment you solve it.
+              Zero automated CAPTCHA bypassing. If security challenges appear, applyZen safely pauses the session, delivers context, and resumes the moment you solve it.
             </p>
           </div>
 
@@ -396,7 +396,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center max-w-2xl mx-auto mb-16">
             <span className="text-xs font-bold uppercase tracking-wider text-[#05603a]">Workflow Progression</span>
-            <h2 className="text-3xl font-extrabold text-gray-900 mt-2">How ApplyZen Powers Your Job Search</h2>
+            <h2 className="text-3xl font-extrabold text-gray-900 mt-2">How applyZen Powers Your Job Search</h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -435,7 +435,7 @@ export default function LandingPage() {
               Ready to automate repetitive applications while staying in complete control?
             </h2>
             <p className="text-emerald-100 text-base leading-relaxed">
-              Join thousands of engineers and professionals using ApplyZen to discover opportunities, match resumes, and navigate career pipelines effortlessly.
+              Join thousands of engineers and professionals using applyZen to discover opportunities, match resumes, and navigate career pipelines effortlessly.
             </p>
             <div className="pt-2">
               <Link

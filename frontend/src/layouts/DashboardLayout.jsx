@@ -166,7 +166,7 @@ export default function DashboardLayout() {
 
       <div className="flex-1 flex flex-col min-w-0 max-w-full lg:pl-64">
         {/* Top Header */}
-        <header className="h-16 sm:h-20 bg-white border-b border-gray-100 px-3.5 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-30">
+        <header className="h-16 sm:h-20 bg-white border-b border-gray-200 px-3.5 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-30 shadow-xs">
           {/* Left: Mobile Sidebar Toggle */}
           <div className="flex items-center">
             <button

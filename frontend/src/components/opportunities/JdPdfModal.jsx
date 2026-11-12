@@ -54,7 +54,7 @@ export default function JdPdfModal({ opportunity, isOpen, onClose, onOpenAutofil
     : 'Not given';
 
   const arrivalDate = formattedDate(opportunity.email_received_at || opportunity.email_timestamp || opportunity.created_at) || 'Recent';
-  const formUrl = opportunity.google_form_url || opportunity.application_url;
+  const formUrl = opportunity.prefilled_url || opportunity.google_form_url || opportunity.application_url;
   const refCode = `GU/T&P/2026/CPD-${String(opportunity.id || opportunity._id || '9241').slice(-5).toUpperCase()}`;
 
   const cleanDescription = (raw, comp, targetRole) => {
@@ -117,7 +117,7 @@ Google Form:    ${formUrl || 'Attached in email'}
 JOB DESCRIPTION & RECRUITER SPECIFICATION:
 ${cleanDescription(opportunity.job_description, company, role)}
 ========================================================================
-Verified by ApplyZen Placement Telemetry Engine
+Verified by applyZen Placement Telemetry Engine
 ========================================================================`;
 
     const element = document.createElement("a");
@@ -428,7 +428,7 @@ Verified by ApplyZen Placement Telemetry Engine
                 <p className="text-[11px] text-gray-500">Galgotias University • Campus Recruitment Division</p>
                 <div className="flex items-center gap-1 text-[10px] text-emerald-700 font-semibold pt-1">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Digitally verified via ApplyZen Recruiter Telemetry</span>
+                  <span>Digitally verified via applyZen Recruiter Telemetry</span>
                 </div>
               </div>
 
