@@ -42,6 +42,23 @@ def test_admit_card_excluded_from_opportunities():
     assert is_opp is False
     assert reason == "admit_card"
 
+    # Exact user notice: "Accenture Recruitment Process: Download your Admit Card NOW!"
+    user_subj = "Accenture Recruitment Process: Download your Admit Card NOW!"
+    user_body = """
+    Dear Candidate,
+    Congratulations on completing the preliminary registration.
+    Please download your Admit Card for the upcoming Accenture National Assessment.
+    Slot: 22nd November 2026, 11:00 AM
+    Test link: https://assessment.accenture.com/candidate/test
+    """
+    is_opp2, reason2 = opportunity_agent.is_career_opportunity(text=user_body, subject=user_subj, from_addr="talent@accenture.com")
+    assert is_opp2 is False
+    assert reason2 == "admit_card"
+
+    is_admit_user, admit_data_user = opportunity_agent.is_admit_card(text=user_body, subject=user_subj)
+    assert is_admit_user is True
+    assert admit_data_user["company"] == "Accenture"
+
 
 def test_numeric_deadline_parsing():
     text1 = "Last date to register is 25/11/2026 till 06.00 PM."

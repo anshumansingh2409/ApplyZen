@@ -84,6 +84,19 @@ const getTimeLeftInfo = (deadlineStr, arrivalStr) => {
   }
 };
 
+const isAdmitCardOpp = (opp) => {
+  if (!opp) return false;
+  const text = `${opp.company || ''} ${opp.role || ''} ${opp.job_title || ''} ${opp.source_email || ''}`.toLowerCase();
+  return (
+    text.includes('admit card') ||
+    text.includes('hall ticket') ||
+    text.includes('hallticket') ||
+    text.includes('assessment pass') ||
+    text.includes('download your admit card') ||
+    text.includes('candidate login credentials')
+  );
+};
+
 
 export default function OpportunitiesPage() {
   const [opportunities, setOpportunities] = useState(() => {
@@ -91,11 +104,13 @@ export default function OpportunitiesPage() {
       const cached = localStorage.getItem('applyzen_cached_opportunities');
       if (cached) {
         const parsed = JSON.parse(cached);
-        return parsed.sort((a, b) => {
-          const timeA = new Date(a.email_received_at || a.email_timestamp || a.created_at || 0).getTime();
-          const timeB = new Date(b.email_received_at || b.email_timestamp || b.created_at || 0).getTime();
-          return timeB - timeA;
-        });
+        return parsed
+          .filter((o) => !isAdmitCardOpp(o))
+          .sort((a, b) => {
+            const timeA = new Date(a.email_received_at || a.email_timestamp || a.created_at || 0).getTime();
+            const timeB = new Date(b.email_received_at || b.email_timestamp || b.created_at || 0).getTime();
+            return timeB - timeA;
+          });
       }
       return [];
     } catch {
@@ -143,6 +158,10 @@ export default function OpportunitiesPage() {
         const comp = (item.company || '').toLowerCase().replace(/[^a-z0-9]/g, '');
         const role = (item.role || '').toLowerCase().replace(/[^a-z0-9]/g, '');
         const jobKey = comp && role ? `job_${comp}_${role}` : null;
+
+        if (isAdmitCardOpp(item)) {
+          continue;
+        }
 
         if (seenOpps.has(idKey) || (msgKey && seenOpps.has(msgKey)) || (jobKey && seenOpps.has(jobKey))) {
           continue;
@@ -673,66 +692,61 @@ export default function OpportunitiesPage() {
                       {opp.company?.charAt(0) || 'C'}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="text-sm sm:text-base font-bold text-gray-900 leading-snug">{opp.company}</h4>
-                        
-                        {/* Time Left Badge directly beside Company Name */}
-                        {(() => {
-                          const tl = getTimeLeftInfo(opp.deadline, opp.email_received_at || opp.email_timestamp || opp.created_at);
-                          return (
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold border flex items-center gap-1 shadow-2xs ${
-                                tl.isClosed
-                                  ? 'bg-red-50 text-red-700 border-red-200'
-                                  : 'bg-amber-50 text-amber-800 border-amber-200'
-                              }`}
-                              title={tl.isClosed ? 'Registration is closed' : 'Registration time left'}
-                            >
-                              <Clock className="w-3 h-3 shrink-0" />
-                              <span>{tl.label}</span>
-                            </span>
-                          );
-                        })()}
-
-                        {/* Match score badge beside Company Name */}
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-[#05603a] font-bold text-[10px] sm:text-[11px] border border-emerald-200">
-                          {opp.match_score || 85}% Match
-                        </span>
-                      </div>
+                      <h4 className="text-sm sm:text-base font-bold text-gray-900 leading-snug truncate">{opp.company}</h4>
                       <p className="text-xs text-gray-600 font-medium truncate mt-0.5">{opp.role}</p>
                     </div>
                   </div>
 
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleDeleteOpp(opp.id || opp._id);
-                    }}
-                    title="Delete opportunity"
-                    className="p-1 sm:p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer shrink-0"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  {/* Right side: Time Left Badge right next to Delete Button (Match % removed) */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {(() => {
+                      const tl = getTimeLeftInfo(opp.deadline, opp.email_received_at || opp.email_timestamp || opp.created_at);
+                      return (
+                        <span
+                          className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] font-bold border flex items-center gap-1 shadow-2xs ${
+                            tl.isClosed
+                              ? 'bg-red-50 text-red-700 border-red-200'
+                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                          }`}
+                          title={tl.isClosed ? 'Registration is closed' : 'Registration time left'}
+                        >
+                          <Clock className="w-3 h-3 shrink-0" />
+                          <span>{tl.label}</span>
+                        </span>
+                      );
+                    })()}
+
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleDeleteOpp(opp.id || opp._id);
+                      }}
+                      title="Delete opportunity"
+                      className="p-1 sm:p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
-                {/* Form Badge (Left of View JD), View JD Button & Recruiter Source (all unified in one inline strip) */}
-                <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                {/* Form Badge, View JD Button & Recruiter Source (with light Google Form bg) */}
+                <div className="mt-3.5 mb-2.5 flex flex-wrap items-center gap-2">
                   {(opp.google_form_url || opp.prefilled_url || (opp.application_url && (opp.application_url.includes('forms') || opp.application_url.includes('docs.google.com') || opp.application_url.includes('http')))) && (
                     <button
                       type="button"
                       onClick={() => handleOpenFormWithAutofill(opp)}
-                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-purple-600 hover:bg-purple-700 text-white font-semibold text-[10px] transition-colors cursor-pointer shadow-2xs"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 font-semibold text-[10px] sm:text-xs transition-colors cursor-pointer shadow-2xs"
                       title={opp.prefilled_url ? "Open pre-filled Google Form (fields populated from Career Ground Truth)" : "Open Google Form"}
                     >
-                      <span className="text-[9.5px]">📝</span>
+                      <span className="text-[10px]">📝</span>
                       <span>{opp.prefilled_url ? 'Google Form (Pre-filled)' : 'Google Form'}</span>
-                      <ExternalLink className="w-2.5 h-2.5 text-purple-200 shrink-0" />
+                      <ExternalLink className="w-2.5 h-2.5 text-purple-500 shrink-0" />
                     </button>
                   )}
 
                   <button
                     onClick={() => setSelectedJdOpp(opp)}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-50 hover:bg-red-100 text-red-700 font-semibold border border-red-200 text-[10px] transition-colors cursor-pointer shadow-2xs"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 font-semibold border border-red-200 text-[10px] sm:text-xs transition-colors cursor-pointer shadow-2xs"
                     title="Click to view full attached JD in PDF format"
                   >
                     <span className="w-3 h-3 rounded bg-red-600 text-white flex items-center justify-center text-[6.5px] font-black shrink-0">
@@ -746,7 +760,7 @@ export default function OpportunitiesPage() {
                     <button
                       type="button"
                       onClick={() => handleAcceptOpp(opp)}
-                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] transition-colors cursor-pointer shadow-2xs"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] sm:text-xs transition-colors cursor-pointer shadow-2xs"
                       title="AI has filled the form with Ground Truth. Click to Accept & Submit now."
                     >
                       <Check className="w-2.5 h-2.5" />
@@ -756,7 +770,7 @@ export default function OpportunitiesPage() {
 
                   {opp.status === 'AUTO_READY' && (
                     <span
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-bold text-[10px]"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 font-bold text-[10px] sm:text-xs"
                       title="Auto-submit active: Form pre-filled with Ground Truth. Submitting before deadline."
                     >
                       <Clock className="w-2.5 h-2.5 text-amber-600 shrink-0" />
@@ -766,7 +780,7 @@ export default function OpportunitiesPage() {
 
                   {(opp.status === 'APPLIED' || opp.status === 'SUBMITTED') && (
                     <span
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-[10px]"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-[10px] sm:text-xs"
                       title="Application has been successfully submitted."
                     >
                       <Check className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
@@ -781,7 +795,7 @@ export default function OpportunitiesPage() {
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[10px] text-gray-500 hover:text-blue-600 hover:underline max-w-[240px] truncate transition-colors py-0.5"
+                      className="inline-flex items-center gap-1 text-[10px] text-gray-500 hover:text-blue-600 hover:underline max-w-[240px] truncate transition-colors py-0.5 ml-auto sm:ml-0"
                       title={`Click to view emails in Gmail from ${opp.source_email}`}
                     >
                       <Mail className="w-3 h-3 text-gray-400 shrink-0" />
@@ -794,21 +808,26 @@ export default function OpportunitiesPage() {
                 </div>
               </div>
 
-              {/* Card Footer: Arrival and Form Deadline placed together at bottom */}
-              <div className="pt-3 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              {/* Card Footer: Arrival and Form Deadline with clear gap */}
+              <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-200 text-gray-700 text-[11px] font-medium">
                     <Clock className="w-3.5 h-3.5 text-[#05603a] shrink-0" />
                     <span>Arrival: <strong className="font-semibold text-gray-900">{formatEmailDate(opp.email_received_at || opp.email_timestamp || opp.created_at) || 'Recent'}</strong></span>
                   </span>
-                  {(opp.deadline || opp.deadline_raw) && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium">
-                      <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span>
-                        Deadline: <strong className="font-semibold">{opp.deadline_raw || formatEmailDate(opp.deadline)}</strong>
+                  {(() => {
+                    const dlStr = opp.deadline_raw || (opp.deadline ? formatEmailDate(opp.deadline) : null);
+                    const fallbackDate = new Date(new Date(opp.email_received_at || opp.email_timestamp || opp.created_at || Date.now()).getTime() + 3 * 24 * 60 * 60 * 1000);
+                    const displayDeadline = dlStr || formatEmailDate(fallbackDate);
+                    return (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium">
+                        <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span>
+                          Deadline: <strong className="font-semibold text-amber-950">{displayDeadline}</strong>
+                        </span>
                       </span>
-                    </span>
-                  )}
+                    );
+                  })()}
                 </div>
 
                 <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">

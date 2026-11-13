@@ -17,21 +17,61 @@ router = APIRouter(prefix="/opportunities", tags=["Opportunities"])
 @router.get("")
 async def list_opportunities(current_user: dict = Depends(get_current_user)):
     user_id = current_user["_id"]
+    db = get_database()
     cache_key = f"cache:opps:{user_id}"
 
-    # Check Cloud Redis cache first
-    cached_opps = await redis_manager.get_json(cache_key)
-    if cached_opps is not None:
-        return cached_opps
-
+    # Fetch opportunities from database
     opps = await opportunity_repo.list_by_user(user_id)
-    # Format _id to id
+    cleaned_opps = []
+    has_cleanup = False
+
     for opp in opps:
         opp["id"] = opp["_id"]
+        text_check = f"{opp.get('company', '')} {opp.get('role', '')} {opp.get('job_title', '')} {opp.get('source_email', '')}".lower()
+        if "admit card" in text_check or "hall ticket" in text_check or "hallticket" in text_check:
+            has_cleanup = True
+            from app.database.repositories.application_repository import application_repo
+            import uuid
+            app_id = str(uuid.uuid4())
+            await application_repo.create({
+                "_id": app_id,
+                "user_id": user_id,
+                "company": opp.get("company", "Accenture"),
+                "role": opp.get("role", "Admit Card / Online Assessment"),
+                "status": "ADMIT_CARD",
+                "is_admit_card": True,
+                "application_url": opp.get("application_url"),
+                "admit_card_details": {
+                    "company": opp.get("company", "Accenture"),
+                    "role": opp.get("role", "Admit Card / Online Assessment"),
+                    "test_url": opp.get("application_url"),
+                    "exam_date": opp.get("deadline_raw") or "Scheduled (Check Admit Card)",
+                    "subject": opp.get("job_title") or "Accenture Recruitment Process: Download your Admit Card NOW!"
+                },
+                "match_score": 90,
+                "timeline": [
+                    {
+                        "title": "🎫 Admit Card / Hall Ticket Issued",
+                        "description": f"Assessment schedule: {opp.get('deadline_raw') or 'Available'}. Notice: {opp.get('job_title', 'Admit Card')}",
+                        "status_tag": "ADMIT_CARD",
+                        "timestamp": datetime.now(timezone.utc).isoformat()
+                    }
+                ],
+                "created_at": opp.get("email_received_at") or datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            })
+            await db.opportunities.delete_one({"_id": opp["_id"]})
+            continue
 
-    # Store in Redis Cloud for 30 seconds
-    await redis_manager.set_json(cache_key, opps, ex=30)
-    return opps
+        cleaned_opps.append(opp)
+
+    if has_cleanup:
+        await redis_manager.delete(cache_key)
+    else:
+        # Cache cleaned opportunities
+        await redis_manager.set_json(cache_key, cleaned_opps, ex=30)
+
+    return cleaned_opps
 
 
 @router.delete("/cleanup-mock")

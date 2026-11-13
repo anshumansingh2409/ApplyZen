@@ -11,12 +11,14 @@ import {
   Clock
 } from 'lucide-react';
 import { applicationService } from '../../services/application.service';
+import AdmitCardModal from '../../components/applications/AdmitCardModal';
 
 export default function ApplicationsPage() {
   const [applications, setApplications] = useState([]);
   const [activeTab, setActiveTab] = useState('ALL');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [selectedAdmitCard, setSelectedAdmitCard] = useState(null);
 
   const fetchApps = async () => {
     try {
@@ -242,12 +244,24 @@ export default function ApplicationsPage() {
                     </a>
                   )}
 
+                  {/* View Admit Card Modal Button */}
+                  {admit && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAdmitCard(app)}
+                      className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] sm:text-xs font-bold border border-indigo-200 transition-colors shadow-2xs shrink-0 whitespace-nowrap cursor-pointer"
+                      title="View printable Admit Card & Exam Details"
+                    >
+                      <span>🎫 View Admit Card</span>
+                    </button>
+                  )}
+
                   {/* Check / Review & Edit Details */}
                   <Link
                     to={`/applications/${app.id || app._id}`}
                     className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 bg-[#05603a] hover:bg-[#034a27] text-white text-[10px] sm:text-xs font-semibold rounded-lg transition-colors shadow-2xs shrink-0 whitespace-nowrap"
                   >
-                    <span>{admit ? 'View Details' : 'Check & Edit'}</span>
+                    <span>Check & Edit</span>
                     <ChevronRight className="w-3 h-3" />
                   </Link>
                 </div>
@@ -256,6 +270,13 @@ export default function ApplicationsPage() {
           })}
         </div>
       )}
+
+      {/* Admit Card Viewer Modal */}
+      <AdmitCardModal
+        isOpen={Boolean(selectedAdmitCard)}
+        onClose={() => setSelectedAdmitCard(null)}
+        application={selectedAdmitCard}
+      />
     </div>
   );
 }
