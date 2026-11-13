@@ -211,3 +211,4 @@ export default function AdmitCardModal({ isOpen, onClose, application }) {
     </div>
   );
 }
+

@@ -92,3 +92,68 @@ async def test_no_dummy_skills_or_fake_stipend():
     # Deadline should not be empty
     assert opp["deadline"] is not None
 
+
+def test_interview_detection_penthara():
+    subj1 = "Anshuman Singh | Software Developer Intern |Technical Challenge Round | Galgotias University | Penthara Technologies"
+    body1 = """
+    Dear Anshuman Singh,
+    Congratulations! You have been shortlisted for the Technical Challenge Round for the Software Developer Intern role at Penthara Technologies.
+    Date: 29 Oct 2026
+    Test link: https://meet.google.com/xyz-penthara-interview
+    """
+    is_int1, data1 = opportunity_agent.is_interview_invitation(body1, subj1)
+    assert is_int1 is True
+    assert data1["company"] == "Penthara Technologies"
+    assert data1["role"] == "Software Developer Intern"
+    assert "Technical Challenge Round" in data1["round_name"]
+    assert data1["candidate_name"] == "Anshuman Singh"
+    assert "29 Oct 2026" in data1["interview_date"]
+    assert data1["is_attended"] is True
+    assert data1["status"] == "INTERVIEW"
+    assert data1["meeting_url"] == "https://meet.google.com/xyz-penthara-interview"
+
+    # Confirms it is excluded from opportunities (routed to applications)
+    is_opp, reason = opportunity_agent.is_career_opportunity(body1, subj1)
+    assert is_opp is False
+    assert reason == "interview_invitation"
+
+    # Round 2 (05 Nov 2026)
+    subj2 = "Anshuman Singh | Software Developer Intern |Technical Challenge Round 2 | Galgotias University | Penthara Technologies"
+    body2 = "Dear Anshuman, Scheduled on 05 Nov 2026 for Round 2."
+    is_int2, data2 = opportunity_agent.is_interview_invitation(body2, subj2)
+    assert is_int2 is True
+    assert data2["company"] == "Penthara Technologies"
+    assert "Round 2" in data2["round_name"]
+    assert "05 Nov 2026" in data2["interview_date"]
+    assert data2["is_attended"] is True
+
+
+def test_interview_detection_micro1_and_outlier():
+    # micro1
+    subj_micro1 = "micro1: AI Technical Interview Invitation - Software Engineer"
+    body_micro1 = "Hi Anshuman, please complete your AI technical screening at https://app.micro1.ai/interview/test-123"
+    is_int_m, data_m = opportunity_agent.is_interview_invitation(body_micro1, subj_micro1)
+    assert is_int_m is True
+    assert data_m["company"] == "micro1"
+    assert data_m["role"] == "Software Engineer"
+    assert data_m["meeting_url"] == "https://app.micro1.ai/interview/test-123"
+
+    # Outlier
+    subj_outlier = "Outlier: Technical Assessment & Coding Challenge"
+    body_outlier = "Dear Candidate, Invitation to the coding screening on https://app.outlier.ai/assessment/test"
+    is_int_o, data_o = opportunity_agent.is_interview_invitation(body_outlier, subj_outlier)
+    assert is_int_o is True
+    assert data_o["company"] == "Outlier"
+    assert data_o["meeting_url"] == "https://app.outlier.ai/assessment/test"
+
+
+def test_company_validator_platforms():
+    from app.ai.agents.opportunity_agent import CompanyValidator
+    assert CompanyValidator.is_valid_company("micro1") is True
+    assert CompanyValidator.is_valid_company("Micro1") is True
+    assert CompanyValidator.is_valid_company("outlier") is True
+    assert CompanyValidator.is_valid_company("Outlier") is True
+    assert CompanyValidator.is_valid_company("Penthara Technologies") is True
+    assert CompanyValidator.is_valid_company("penthara") is True
+
+

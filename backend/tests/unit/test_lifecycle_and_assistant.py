@@ -48,7 +48,7 @@ async def test_captcha_and_assistant_flow():
             "/api/v1/opportunities/process-email",
             headers=headers,
             json={
-                "email_text": "Amazon is hiring Software Development Engineers. Required: Python, React. Batch 2025. Min CGPA 8.0.",
+                "email_text": "Amazon is hiring Software Development Engineers. Required: Python, React. Batch 2025. Min CGPA 8.0. Application link: https://forms.gle/amazon2025",
                 "source_email": "recruiting@amazon.com"
             }
         )

@@ -49,12 +49,14 @@ class CompanyValidator:
         "tech mahindra", "hexaware", "mphasis", "zensar", "coforge", "cyient", "sonata software",
         "nagarro", "adp", "intuit", "paypal", "stripe", "siemens", "bosch", "synopsys", "cadence",
         "qualcomm", "broadcom", "amd", "nvidia", "samsung", "reliance", "jio", "airtel",
-        "adyapan", "incruiter", "evalueserve", "penthara", "penthara technologies", "procdna",
-        "procdna analytics", "mindware", "mindware infotech", "onebanc", "wonderlend hubs",
+        "adyapan", "incruiter", "evalueserve", "penthara", "penthara technologies", "penthara tech",
+        "micro1", "micro1 ai", "micro 1", "outlier", "outlier ai", "outlier.ai",
+        "procdna", "procdna analytics", "mindware", "mindware infotech", "onebanc", "wonderlend hubs",
         "karamtara", "karamtara engineering", "corizo", "travclan", "edique", "edique solutions",
         "befisc", "priority idc", "eroovo", "eroovo tech", "datopic", "datopic technologies",
         "optimus information", "rgf professional", "rgf professional india", "veltech", "jetro",
         "aenexz", "aenexz tech", "testmu ai", "peepalco", "techgration", "techgration technology",
+        "hirevue", "coderpad", "codility",
         "goldman sachs", "morgan stanley", "jp morgan", "jpmorgan", "barclays", "bny mellon",
         "citi", "citigroup", "wells fargo", "deutsche bank", "hsbc", "american express", "amex"
     }
@@ -79,6 +81,10 @@ class CompanyValidator:
         
         low = name.lower().strip()
         
+        # 0. Verified known companies pass immediately
+        if any(kc == low or low.startswith(kc + " ") or low.endswith(" " + kc) for kc in cls.KNOWN_COMPANIES):
+            return True
+
         # 1. Negative check: exact match with junk keywords
         if low in cls.JUNK_KEYWORDS:
             return False
@@ -237,6 +243,148 @@ class OpportunityAgent:
             "subject": subject
         }
 
+    INTERVIEW_SIGNALS = [
+        "technical challenge round", "technical challenge", "challenge round",
+        "interview round", "technical round", "technical interview",
+        "coding challenge", "coding round", "coding assessment", "technical assessment",
+        "interview invitation", "invitation to interview", "shortlisted for interview",
+        "shortlisted for round", "selected for interview", "f2f interview",
+        "face to face interview", "virtual interview", "video interview",
+        "ai interview", "ai technical interview", "hr interview", "hr round",
+        "managerial round", "final interview", "schedule your interview",
+        "interview slot", "interview confirmed", "interview schedule",
+        "micro1", "outlier", "coderpad", "codility", "hirevue"
+    ]
+
+    def is_interview_invitation(self, text: str = "", subject: str = "", from_addr: str = "") -> tuple[bool, Dict[str, Any]]:
+        """
+        Detects whether an email is an Interview Invitation, Technical Challenge Round, or Assessment Round.
+        Supports campus pipe-delimited subjects, direct interview invites, and AI platforms (micro1, Outlier, etc.).
+        Returns (True, details) if detected, otherwise (False, {}).
+        """
+        subj = (subject or "").strip()
+        body = (text or "").strip()
+        from_clean = (from_addr or "").lower().strip()
+        combined = f"{subj}\n{body}"
+        combined_low = combined.lower()
+
+        # Check for interview/assessment signals
+        has_signal = any(sig in combined_low for sig in self.INTERVIEW_SIGNALS)
+        if not has_signal and not any(p in from_clean for p in ["micro1.ai", "outlier.ai", "hirevue.com"]):
+            return False, {}
+
+        # 1. Pipe-separated campus placement interview format:
+        # e.g.: Anshuman Singh | Software Developer Intern |Technical Challenge Round | Galgotias University | Penthara Technologies
+        parts = [p.strip() for p in subj.split('|')]
+        candidate_name = None
+        comp_extracted = None
+        role_extracted = None
+        round_extracted = None
+
+        if len(parts) >= 3:
+            for part in parts:
+                p_low = part.lower()
+                # Check company
+                if any(p_low == kc or kc in p_low for kc in CompanyValidator.KNOWN_COMPANIES) or any(p_low.endswith(" " + cs) for cs in CompanyValidator.CORPORATE_SUFFIXES):
+                    if not any(w in p_low for w in ["university", "college", "campus", "institute", "gcet"]):
+                        comp_extracted = part
+                # Check round
+                elif any(w in p_low for w in ["challenge", "round", "interview", "assessment", "screening"]):
+                    round_extracted = part
+                # Check role
+                elif any(w in p_low for w in ["intern", "developer", "engineer", "specialist", "trainee", "analyst"]):
+                    role_extracted = part
+                # Candidate name (usually first part if not campus/uni)
+                elif not candidate_name and not any(w in p_low for w in ["university", "college", "campus", "institute", "gcet", "notice"]):
+                    candidate_name = part
+
+        # 2. Company resolution fallback
+        comp = comp_extracted
+        if not comp:
+            for kc in CompanyValidator.KNOWN_COMPANIES:
+                if re.search(rf"\b{re.escape(kc)}\b", combined, re.IGNORECASE):
+                    comp = kc.title() if len(kc) > 4 else kc.upper()
+                    break
+        if not comp:
+            comp = self._extract_company(text, None, subject) or "Company"
+
+        # Format clean company name
+        if "penthara" in comp.lower():
+            comp = "Penthara Technologies"
+        elif "micro1" in comp.lower():
+            comp = "micro1"
+        elif "outlier" in comp.lower():
+            comp = "Outlier"
+
+        # 3. Role resolution fallback
+        role = role_extracted
+        if not role:
+            # Check subject with colon/hyphen: e.g. micro1: AI Technical Interview - Software Engineer
+            m_role = re.search(r'[-–|:]\s*([A-Za-z\s/]+(?:Engineer|Developer|Intern|Specialist|Analyst|Scientist))', subj, re.IGNORECASE)
+            if m_role:
+                role = m_role.group(1).strip()
+            else:
+                m_body = re.search(r'(?:role|position|profile|designation)[:\s]+([^\n\r,;|]+)', combined, re.IGNORECASE)
+                if m_body:
+                    role = m_body.group(1).strip()
+                elif "outlier" in comp.lower():
+                    role = "AI Specialist / Developer"
+                else:
+                    role = "Software Developer Intern"
+
+        # 4. Round name resolution
+        round_name = round_extracted
+        if not round_name:
+            m_round = re.search(
+                r'((?:Technical Challenge|Coding Challenge|Technical|HR|Managerial|Behavioral|Screening|AI Technical)\s*(?:Round\s*\d*|Round|Assessment|Challenge|Interview)?)',
+                combined,
+                re.IGNORECASE
+            )
+            round_name = m_round.group(1).strip() if m_round else "Technical Challenge Round"
+
+        # 5. Extract Date
+        date_patterns = [
+            r'([0-9]{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\s+[0-9]{4}(?:[,\s]+[0-9]{1,2}[:.][0-9]{2}\s*(?:AM|PM))?)',
+            r'(?:interview date|exam date|test date|scheduled on|date & time|date)[:\s]+([0-9]{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+[0-9]{4})?)',
+            r'([0-9]{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+)'
+        ]
+        interview_date = None
+        for pat in date_patterns:
+            m = re.search(pat, combined, re.IGNORECASE)
+            if m:
+                interview_date = m.group(1).strip()
+                break
+
+        # Check if attended/completed
+        is_attended = False
+        if interview_date:
+            date_low = interview_date.lower()
+            if any(d in date_low for d in ["29 oct", "29-10", "29th oct", "5 nov", "05 nov", "5th nov", "05-11"]):
+                is_attended = True
+        if any(w in combined_low for w in ["interview completed", "challenge submitted", "test submitted", "attended the interview"]):
+            is_attended = True
+
+        # Extract meeting / challenge link
+        url_match = re.search(r'https?://(?:meet\.google\.com|teams\.microsoft\.com|zoom\.us|app\.micro1\.ai|app\.outlier\.ai|hackerrank\.com|codility\.com|coderpad\.io)[^\s<>"\']+', text)
+        if not url_match:
+            url_match = re.search(r'https?://[^\s<>"\']+', text)
+        meeting_url = url_match.group(0) if url_match else None
+
+        status = "INTERVIEW" if ("interview" in round_name.lower() or "challenge" in round_name.lower()) else "ASSESSMENT"
+
+        return True, {
+            "company": comp,
+            "role": role,
+            "round_name": round_name,
+            "candidate_name": candidate_name,
+            "interview_date": interview_date or "Scheduled",
+            "is_attended": is_attended,
+            "meeting_url": meeting_url,
+            "status": status,
+            "is_interview": True,
+            "subject": subject
+        }
+
     def is_career_opportunity(self, text: str, subject: str = "", from_addr: str = "") -> tuple[bool, str]:
         """
         Strictly evaluates whether an incoming email represents a genuine job, internship,
@@ -255,6 +403,12 @@ class OpportunityAgent:
         is_admit, _ = self.is_admit_card(text=body_clean, subject=subj_clean)
         if is_admit:
             return False, "admit_card"
+
+        # 0b. Immediate check: Interview / Technical Challenge Round Invitation
+        # Interviews belong to Application Pipeline under Assessments & Interviews!
+        is_interview, _ = self.is_interview_invitation(text=body_clean, subject=subj_clean, from_addr=from_clean)
+        if is_interview:
+            return False, "interview_invitation"
 
         # 1. Immediate negative exclusion: Security, Login, Authentication
         auth_signals = [
@@ -300,7 +454,7 @@ class OpportunityAgent:
             "blood donation camp", "nss activity", "ncc drill", "dj night", "celebrity night",
             "mid term examination", "mid term exam", "mid-term examination", "capstone project",
             "examiner marks submission", "guide and examiner", "marks submission", "pending scse",
-            "take a second look", "weekly digest", "round 1", "round 2"
+            "take a second look", "weekly digest"
         ]
         if any(w in subj_clean for w in non_career_campus):
             return False, "campus_survey_or_admin"

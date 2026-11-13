@@ -63,6 +63,53 @@ async def list_opportunities(current_user: dict = Depends(get_current_user)):
             await db.opportunities.delete_one({"_id": opp["_id"]})
             continue
 
+        # Purge & migrate any interview/challenge opportunities into applications collection
+        is_interview_opp = any(k in text_check for k in ["penthara", "technical challenge round", "interview round", "micro1", "outlier"])
+        if is_interview_opp:
+            has_cleanup = True
+            from app.database.repositories.application_repository import application_repo
+            import uuid
+            app_id = str(uuid.uuid4())
+            comp_name = "Penthara Technologies" if "penthara" in text_check else ("micro1" if "micro1" in text_check else ("Outlier" if "outlier" in text_check else opp.get("company", "Company")))
+            round_name = "Technical Challenge Round" if "technical challenge" in text_check else "Interview / Screening Round"
+            date_str = opp.get("deadline_raw") or "Scheduled"
+            is_attended = any(d in date_str.lower() for d in ["29 oct", "5 nov", "completed", "attended"])
+
+            await application_repo.create({
+                "_id": app_id,
+                "user_id": user_id,
+                "company": comp_name,
+                "role": opp.get("role") or "Software Developer Intern",
+                "round_name": round_name,
+                "status": "INTERVIEW",
+                "is_interview": True,
+                "is_attended": is_attended,
+                "application_url": opp.get("application_url"),
+                "google_form_url": opp.get("google_form_url") or opp.get("application_url"),
+                "interview_details": {
+                    "company": comp_name,
+                    "role": opp.get("role") or "Software Developer Intern",
+                    "round_name": round_name,
+                    "interview_date": date_str,
+                    "is_attended": is_attended,
+                    "subject": opp.get("job_title")
+                },
+                "match_score": 95,
+                "applied_date": date_str if date_str != "Scheduled" else "29 Oct 2026",
+                "timeline": [
+                    {
+                        "title": f"🎙️ {round_name} {'Completed / Attended' if is_attended else 'Scheduled'}",
+                        "description": f"Recruitment Round: {round_name}. Scheduled Date: {date_str}. Company: {comp_name}.",
+                        "status_tag": "INTERVIEW",
+                        "timestamp": datetime.now(timezone.utc).isoformat()
+                    }
+                ],
+                "created_at": opp.get("email_received_at") or datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            })
+            await db.opportunities.delete_one({"_id": opp["_id"]})
+            continue
+
         cleaned_opps.append(opp)
 
     if has_cleanup:

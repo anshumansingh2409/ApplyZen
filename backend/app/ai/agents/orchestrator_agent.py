@@ -70,6 +70,47 @@ class CareerOrchestratorAgent:
             await application_repo.create(admit_app)
             return {"status": "admit_card_routed", "application_id": app_id, "is_admit_card": True}
 
+        # Step 0b: Check if it's an Interview Invitation / Technical Challenge Round
+        is_interview, int_data = opportunity_agent.is_interview_invitation(text=email_content, subject=source_email or "")
+        if is_interview:
+            comp_name = int_data.get("company") or "Company"
+            role_name = int_data.get("role") or "Software Developer"
+            round_name = int_data.get("round_name") or "Technical Challenge Round"
+            int_date = int_data.get("interview_date") or "Scheduled"
+            is_attended = int_data.get("is_attended", False)
+
+            logger.info(f"[Orchestrator] Interview invitation detected for {comp_name} - {round_name}. Routing to Application Pipeline.")
+            app_id = str(uuid.uuid4())
+            interview_app = {
+                "_id": app_id,
+                "user_id": user_id,
+                "company": comp_name,
+                "role": role_name,
+                "round_name": round_name,
+                "status": int_data.get("status", ApplicationStatus.INTERVIEW.value),
+                "is_interview": True,
+                "is_attended": is_attended,
+                "application_url": int_data.get("meeting_url"),
+                "google_form_url": int_data.get("meeting_url"),
+                "interview_details": int_data,
+                "match_score": 92,
+                "applied_date": int_date if int_date != "Scheduled" else datetime.now(timezone.utc).strftime("%d %b %Y"),
+                "source_email": source_email,
+                "provider_message_id": provider_message_id,
+                "timeline": [
+                    {
+                        "title": f"🎙️ {round_name} {'Completed / Attended' if is_attended else 'Scheduled'}",
+                        "description": f"Round: {round_name}. Scheduled Date: {int_date}. Company: {comp_name}.",
+                        "status_tag": int_data.get("status", ApplicationStatus.INTERVIEW.value),
+                        "timestamp": datetime.now(timezone.utc).isoformat()
+                    }
+                ],
+                "created_at": email_received_at or datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            await application_repo.create(interview_app)
+            return {"status": "interview_routed", "application_id": app_id, "is_interview": True}
+
         # Step 1: Opportunity Extraction
         opp_data = await opportunity_agent.extract_opportunity(
             email_content,

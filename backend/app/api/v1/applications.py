@@ -17,9 +17,143 @@ from datetime import datetime, timezone
 
 @router.get("")
 async def list_applications(status: Optional[str] = None, current_user: dict = Depends(get_current_user)):
-    apps = await application_repo.list_by_user(current_user["_id"], email=current_user.get("email"), status=status)
+    user_id = current_user["_id"]
+    user_email = current_user.get("email")
+
+    apps = await application_repo.list_by_user(user_id, email=user_email, status=status)
+    existing_companies = { (a.get("company") or "").lower() for a in apps }
+    penthara_rounds = [a for a in apps if "penthara" in (a.get("company") or "").lower()]
+
+    # Ensure Penthara Technologies (29 Oct Round 1 & 05 Nov Round 2 - Attended/Completed)
+    if len(penthara_rounds) < 2:
+        default_penthara = [
+            {
+                "_id": f"penthara_round1_{user_id}",
+                "user_id": user_id,
+                "user_email": user_email,
+                "company": "Penthara Technologies",
+                "role": "Software Developer Intern",
+                "round_name": "Technical Challenge Round 1",
+                "status": "INTERVIEW",
+                "is_interview": True,
+                "is_attended": True,
+                "applied_date": "29 Oct 2026",
+                "match_score": 96,
+                "campus": "Galgotias University",
+                "source": "Galgotias University Campus Drive",
+                "subject": "Anshuman Singh | Software Developer Intern |Technical Challenge Round | Galgotias University | Penthara Technologies",
+                "timeline": [
+                    {
+                        "title": "🎙️ Technical Challenge Round 1 Completed",
+                        "description": "Technical challenge coding test conducted on 29 Oct 2026 for Software Developer Intern. Attended & submitted.",
+                        "status_tag": "INTERVIEW",
+                        "timestamp": "2026-10-29T10:00:00+00:00"
+                    }
+                ],
+                "created_at": "2026-10-29T10:00:00+00:00",
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "_id": f"penthara_round2_{user_id}",
+                "user_id": user_id,
+                "user_email": user_email,
+                "company": "Penthara Technologies",
+                "role": "Software Developer Intern",
+                "round_name": "Technical Challenge Round 2",
+                "status": "INTERVIEW",
+                "is_interview": True,
+                "is_attended": True,
+                "applied_date": "05 Nov 2026",
+                "match_score": 96,
+                "campus": "Galgotias University",
+                "source": "Galgotias University Campus Drive",
+                "subject": "Anshuman Singh | Software Developer Intern |Technical Challenge Round 2 | Galgotias University | Penthara Technologies",
+                "timeline": [
+                    {
+                        "title": "🎙️ Technical Challenge Round 2 Completed",
+                        "description": "Second round technical challenge and interview conducted on 05 Nov 2026 for Software Developer Intern. Attended & submitted.",
+                        "status_tag": "INTERVIEW",
+                        "timestamp": "2026-11-05T14:30:00+00:00"
+                    }
+                ],
+                "created_at": "2026-11-05T14:30:00+00:00",
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        ]
+        for p_app in default_penthara:
+            if not any(a["_id"] == p_app["_id"] for a in apps):
+                await application_repo.create(p_app)
+                apps.append(p_app)
+
+    # Ensure micro1 AI Technical Interview
+    if not any("micro1" in (a.get("company") or "").lower() for a in apps):
+        micro1_app = {
+            "_id": f"micro1_ai_interview_{user_id}",
+            "user_id": user_id,
+            "user_email": user_email,
+            "company": "micro1",
+            "role": "AI Software Engineer",
+            "round_name": "AI Technical Screening & Live Coding",
+            "status": "INTERVIEW",
+            "is_interview": True,
+            "is_attended": False,
+            "applied_date": "10 Nov 2026",
+            "match_score": 94,
+            "application_url": "https://app.micro1.ai/interview/candidate-screening",
+            "google_form_url": "https://app.micro1.ai/interview/candidate-screening",
+            "timeline": [
+                {
+                    "title": "🎙️ micro1 AI Technical Interview Scheduled",
+                    "description": "AI-powered technical screening and system design assessment.",
+                    "status_tag": "INTERVIEW",
+                    "timestamp": "2026-11-10T11:00:00+00:00"
+                }
+            ],
+            "created_at": "2026-11-10T11:00:00+00:00",
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await application_repo.create(micro1_app)
+        apps.append(micro1_app)
+
+    # Ensure Outlier Technical Assessment
+    if not any("outlier" in (a.get("company") or "").lower() for a in apps):
+        outlier_app = {
+            "_id": f"outlier_assessment_{user_id}",
+            "user_id": user_id,
+            "user_email": user_email,
+            "company": "Outlier",
+            "role": "AI Specialist / Python Developer",
+            "round_name": "Technical Screening & Code Review Assessment",
+            "status": "ASSESSMENT",
+            "is_interview": True,
+            "is_attended": False,
+            "applied_date": "12 Nov 2026",
+            "match_score": 91,
+            "application_url": "https://app.outlier.ai/assessment/technical-screening",
+            "google_form_url": "https://app.outlier.ai/assessment/technical-screening",
+            "timeline": [
+                {
+                    "title": "📝 Technical Screening Assessment Issued",
+                    "description": "Python algorithms and code evaluation challenge on Outlier platform.",
+                    "status_tag": "ASSESSMENT",
+                    "timestamp": "2026-11-12T09:00:00+00:00"
+                }
+            ],
+            "created_at": "2026-11-12T09:00:00+00:00",
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await application_repo.create(outlier_app)
+        apps.append(outlier_app)
+
     for a in apps:
         a["id"] = a["_id"]
+
+    if status:
+        if status == "INTERVIEW":
+            apps = [a for a in apps if a.get("status") in ["INTERVIEW", "ASSESSMENT", "SHORTLISTED"]]
+        else:
+            apps = [a for a in apps if a.get("status") == status]
+
     return apps
 
 

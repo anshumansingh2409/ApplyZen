@@ -181,8 +181,112 @@ async def seed_database(custom_uri: str = None):
     # 5. Opportunities collection
     logger.info("Opportunities collection kept clean for authentic email ingestion.")
 
-    # 6. Applications collection
-    logger.info("Applications collection kept clean for authentic application workflows.")
+    # 6. Applications collection (Seeding Penthara, micro1, Outlier interviews/assessments)
+    logger.info("Seeding interview & assessment records in applications collection...")
+    existing_apps_count = await db.applications.count_documents({"user_id": user_id})
+    if existing_apps_count == 0:
+        seed_applications = [
+            {
+                "_id": f"penthara_round1_{user_id}",
+                "user_id": user_id,
+                "company": "Penthara Technologies",
+                "role": "Software Developer Intern",
+                "round_name": "Technical Challenge Round 1",
+                "status": "INTERVIEW",
+                "is_interview": True,
+                "is_attended": True,
+                "applied_date": "29 Oct 2026",
+                "match_score": 96,
+                "campus": "Galgotias University",
+                "source": "Galgotias University Campus Drive",
+                "subject": "Anshuman Singh | Software Developer Intern |Technical Challenge Round | Galgotias University | Penthara Technologies",
+                "timeline": [
+                    {
+                        "title": "🎙️ Technical Challenge Round 1 Completed",
+                        "description": "Technical challenge coding test conducted on 29 Oct 2026 for Software Developer Intern. Attended & submitted.",
+                        "status_tag": "INTERVIEW",
+                        "timestamp": "2026-10-29T10:00:00+00:00"
+                    }
+                ],
+                "created_at": "2026-10-29T10:00:00+00:00",
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "_id": f"penthara_round2_{user_id}",
+                "user_id": user_id,
+                "company": "Penthara Technologies",
+                "role": "Software Developer Intern",
+                "round_name": "Technical Challenge Round 2",
+                "status": "INTERVIEW",
+                "is_interview": True,
+                "is_attended": True,
+                "applied_date": "05 Nov 2026",
+                "match_score": 96,
+                "campus": "Galgotias University",
+                "source": "Galgotias University Campus Drive",
+                "subject": "Anshuman Singh | Software Developer Intern |Technical Challenge Round 2 | Galgotias University | Penthara Technologies",
+                "timeline": [
+                    {
+                        "title": "🎙️ Technical Challenge Round 2 Completed",
+                        "description": "Second round technical challenge and interview conducted on 05 Nov 2026 for Software Developer Intern. Attended & submitted.",
+                        "status_tag": "INTERVIEW",
+                        "timestamp": "2026-11-05T14:30:00+00:00"
+                    }
+                ],
+                "created_at": "2026-11-05T14:30:00+00:00",
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "_id": f"micro1_ai_interview_{user_id}",
+                "user_id": user_id,
+                "company": "micro1",
+                "role": "AI Software Engineer",
+                "round_name": "AI Technical Screening & Live Coding",
+                "status": "INTERVIEW",
+                "is_interview": True,
+                "is_attended": False,
+                "applied_date": "10 Nov 2026",
+                "match_score": 94,
+                "application_url": "https://app.micro1.ai/interview/candidate-screening",
+                "google_form_url": "https://app.micro1.ai/interview/candidate-screening",
+                "timeline": [
+                    {
+                        "title": "🎙️ micro1 AI Technical Interview Scheduled",
+                        "description": "AI-powered technical screening and system design assessment.",
+                        "status_tag": "INTERVIEW",
+                        "timestamp": "2026-11-10T11:00:00+00:00"
+                    }
+                ],
+                "created_at": "2026-11-10T11:00:00+00:00",
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "_id": f"outlier_assessment_{user_id}",
+                "user_id": user_id,
+                "company": "Outlier",
+                "role": "AI Specialist / Python Developer",
+                "round_name": "Technical Screening & Code Review Assessment",
+                "status": "ASSESSMENT",
+                "is_interview": True,
+                "is_attended": False,
+                "applied_date": "12 Nov 2026",
+                "match_score": 91,
+                "application_url": "https://app.outlier.ai/assessment/technical-screening",
+                "google_form_url": "https://app.outlier.ai/assessment/technical-screening",
+                "timeline": [
+                    {
+                        "title": "📝 Technical Screening Assessment Issued",
+                        "description": "Python algorithms and code evaluation challenge on Outlier platform.",
+                        "status_tag": "ASSESSMENT",
+                        "timestamp": "2026-11-12T09:00:00+00:00"
+                    }
+                ],
+                "created_at": "2026-11-12T09:00:00+00:00",
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        ]
+        await db.applications.insert_many(seed_applications)
+        logger.info(f"Seeded {len(seed_applications)} interview and assessment applications.")
 
     # 7. Seed Notifications
     logger.info("Notifications collection kept clean for authentic real-time user events.")

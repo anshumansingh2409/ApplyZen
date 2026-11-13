@@ -80,6 +80,10 @@ export default function ApplicationsPage() {
 
   const admitCardCount = applications.filter(isAdmitCard).length;
 
+  const interviewCount = applications.filter((a) =>
+    ['INTERVIEW', 'ASSESSMENT', 'SHORTLISTED'].includes(a.status) && !isAdmitCard(a)
+  ).length;
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header */}
@@ -111,7 +115,7 @@ export default function ApplicationsPage() {
           { id: 'ADMIT_CARDS', label: `🎫 Admit Cards (${admitCardCount})` },
           { id: 'SUBMITTED', label: `Submitted (${submittedCount})` },
           { id: 'ACTION_REQUIRED', label: 'Action Required' },
-          { id: 'INTERVIEWS', label: 'Assessments & Interviews' },
+          { id: 'INTERVIEWS', label: `🎙️ Assessments & Interviews (${interviewCount})` },
           { id: 'OFFERS', label: 'Offers' },
         ].map((tab) => (
           <button
@@ -147,21 +151,28 @@ export default function ApplicationsPage() {
           {filtered.map((app) => {
             const formUrl = app.google_form_url || app.application_url;
             const admit = isAdmitCard(app);
+            const isInterview = ['INTERVIEW', 'ASSESSMENT', 'SHORTLISTED'].includes(app.status) && !admit;
 
             return (
               <div
                 key={app.id || app._id}
                 className={`p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 transition-colors ${
-                  admit ? 'bg-indigo-50/30 hover:bg-indigo-50/50' : 'hover:bg-gray-50/50'
+                  admit
+                    ? 'bg-indigo-50/30 hover:bg-indigo-50/50'
+                    : isInterview
+                    ? 'bg-blue-50/20 hover:bg-blue-50/40'
+                    : 'hover:bg-gray-50/50'
                 }`}
               >
                 <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
                   <div className={`w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl border flex items-center justify-center font-bold text-xs sm:text-base shrink-0 ${
                     admit
                       ? 'bg-indigo-100 border-indigo-200 text-indigo-700'
+                      : isInterview
+                      ? 'bg-blue-100 border-blue-200 text-blue-700'
                       : 'bg-emerald-50 border border-emerald-100 text-[#05603a]'
                   }`}>
-                    {admit ? '🎫' : (app.company?.charAt(0) || 'C')}
+                    {admit ? '🎫' : isInterview ? '🎙️' : (app.company?.charAt(0) || 'C')}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
@@ -169,6 +180,14 @@ export default function ApplicationsPage() {
                       {admit ? (
                         <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-bold shrink-0 border border-indigo-200">
                           🎫 Admit Card
+                        </span>
+                      ) : isInterview ? (
+                        <span className={`text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-bold shrink-0 border ${
+                          app.status === 'ASSESSMENT'
+                            ? 'bg-amber-100 text-amber-800 border-amber-200'
+                            : 'bg-blue-100 text-blue-800 border-blue-200'
+                        }`}>
+                          {app.status === 'ASSESSMENT' ? '📝 Technical Assessment' : '🎙️ Technical Interview'}
                         </span>
                       ) : (
                         <span className="text-[10px] sm:text-xs px-1.5 py-0.2 rounded bg-emerald-50 text-[#05603a] font-bold shrink-0">
@@ -184,6 +203,32 @@ export default function ApplicationsPage() {
                           <span className="text-indigo-700 font-semibold text-[10px] sm:text-[11px] truncate">
                             Schedule: {app.admit_card_details?.exam_date || 'Scheduled'}
                           </span>
+                        </>
+                      ) : isInterview ? (
+                        <>
+                          {app.round_name && (
+                            <>
+                              <span className="text-gray-300">•</span>
+                              <span className="text-blue-700 font-semibold text-[10px] sm:text-[11px] truncate">
+                                {app.round_name}
+                              </span>
+                            </>
+                          )}
+                          {app.is_attended ? (
+                            <>
+                              <span className="text-gray-300">•</span>
+                              <span className="text-emerald-700 font-bold text-[10px] sm:text-[11px] bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                ✅ Attended / Completed ({app.applied_date || 'Oct 2026'})
+                              </span>
+                            </>
+                          ) : app.applied_date ? (
+                            <>
+                              <span className="text-gray-300">•</span>
+                              <span className="text-gray-600 font-medium text-[10px] sm:text-[11px]">
+                                📅 Date: {app.applied_date}
+                              </span>
+                            </>
+                          ) : null}
                         </>
                       ) : (
                         <>
@@ -202,6 +247,15 @@ export default function ApplicationsPage() {
                   {admit ? (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-2xs shrink-0 whitespace-nowrap">
                       <span>Admit Card Active</span>
+                    </span>
+                  ) : isInterview && app.is_attended ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs shrink-0 whitespace-nowrap">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      <span>Round Completed</span>
+                    </span>
+                  ) : isInterview ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs shrink-0 whitespace-nowrap">
+                      <span>{app.status === 'ASSESSMENT' ? '📝 Assessment Active' : '🎙️ Interview Active'}</span>
                     </span>
                   ) : app.status === 'SUBMITTED' ? (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold bg-emerald-50 text-[#05603a] border border-emerald-200 shadow-2xs shrink-0 whitespace-nowrap">
@@ -232,15 +286,17 @@ export default function ApplicationsPage() {
                       href={formUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold border transition-colors shrink-0 whitespace-nowrap ${
+                      className={`inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold border transition-colors shrink-0 whitespace-nowrap ${
                         admit
                           ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-700 shadow-2xs'
+                          : isInterview
+                          ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-700 shadow-2xs'
                           : 'bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200'
                       }`}
-                      title={admit ? "Launch Online Assessment" : "Open Google Form"}
+                      title={admit ? "Launch Online Assessment" : isInterview ? "Join Interview / Open Challenge Link" : "Open Google Form"}
                     >
-                      <span>{admit ? '🚀 Launch Test' : '📝 Form'}</span>
-                      <ExternalLink className={`w-2.5 h-2.5 ${admit ? 'text-indigo-200' : 'text-purple-400'}`} />
+                      <span>{admit ? '🚀 Launch Test' : isInterview ? '🚀 Join / Test Link' : '📝 Form'}</span>
+                      <ExternalLink className={`w-2.5 h-2.5 ${admit || isInterview ? 'text-blue-100' : 'text-purple-400'}`} />
                     </a>
                   )}
 
