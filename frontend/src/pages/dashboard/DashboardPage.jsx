@@ -98,7 +98,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6 sm:space-y-8 max-w-full min-w-0">
       {/* 1. Complete Your Profile System Banner */}
-      <div className="bg-gradient-to-r from-emerald-50 via-teal-50/40 to-white p-4 sm:p-5 rounded-2xl border border-emerald-200/90 shadow-xs">
+      <div className="bg-gradient-to-r from-emerald-50/90 via-teal-50/40 to-emerald-50/20 dark:from-[#06241a] dark:via-[#111827] dark:to-[#111827] dark:bg-[#111827] p-4 sm:p-5 rounded-2xl border border-emerald-200/90 dark:border-emerald-800/40 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-start gap-3.5 min-w-0">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#05603a] to-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
@@ -111,30 +111,30 @@ export default function DashboardPage() {
 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-sm sm:text-base font-bold text-gray-900">
+                <h3 className="text-sm sm:text-base font-bold text-gray-900 dark:text-gray-100">
                   {profileStats.percentage === 100
                     ? 'Career Profile 100% Complete!'
                     : `Complete Your Profile (${profileStats.percentage}%)`}
                 </h3>
                 {profileStats.percentage === 100 ? (
-                  <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
                     Verified for 1-Click Apply
                   </span>
                 ) : (
-                  <span className="text-[10px] font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full">
+                  <span className="text-[10px] font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60 px-2 py-0.5 rounded-full">
                     {profileStats.missingItems.length} steps remaining
                   </span>
                 )}
               </div>
 
-              <p className="text-xs text-gray-600 mt-1">
+              <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">
                 {profileStats.percentage === 100
                   ? 'All essential details are verified. Your job applications will auto-fill with zero errors.'
                   : 'Complete your profile to unlock verified 1-click Google Form auto-fills and higher resume match scores.'}
               </p>
 
               {/* Progress Track */}
-              <div className="w-full max-w-md h-2 bg-gray-200/80 rounded-full overflow-hidden mt-2.5">
+              <div className="w-full max-w-md h-2 bg-gray-200/80 dark:bg-gray-800 rounded-full overflow-hidden mt-2.5">
                 <div
                   className="h-full bg-gradient-to-r from-emerald-500 to-[#05603a] rounded-full transition-all duration-700"
                   style={{ width: `${profileStats.percentage}%` }}
@@ -144,12 +144,12 @@ export default function DashboardPage() {
               {/* Missing Items Chips */}
               {profileStats.missingItems.length > 0 && (
                 <div className="flex items-center gap-1.5 flex-wrap mt-2.5">
-                  <span className="text-[11px] font-semibold text-gray-500 mr-1">Missing:</span>
+                  <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mr-1">Missing:</span>
                   {profileStats.missingItems.slice(0, 3).map((item) => (
                     <Link
                       key={item.id}
                       to={`/career-profile?tab=${item.id}`}
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#05603a] bg-white border border-emerald-200/90 hover:bg-emerald-50 px-2 py-0.5 rounded-lg transition-colors shadow-2xs"
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#05603a] dark:text-emerald-300 bg-white dark:bg-gray-800 border border-emerald-200/90 dark:border-emerald-700/60 hover:bg-emerald-50 dark:hover:bg-gray-700 px-2 py-0.5 rounded-lg transition-colors shadow-2xs"
                     >
                       <span>+ {item.label}</span>
                     </Link>
@@ -157,7 +157,7 @@ export default function DashboardPage() {
                   {profileStats.missingItems.length > 3 && (
                     <Link
                       to="/career-profile"
-                      className="text-[11px] font-bold text-emerald-800 hover:underline"
+                      className="text-[11px] font-bold text-emerald-800 dark:text-emerald-400 hover:underline"
                     >
                       +{profileStats.missingItems.length - 3} more
                     </Link>
@@ -181,10 +181,10 @@ export default function DashboardPage() {
       </div>
 
       {/* Top Banner / Welcome */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-[#111827] p-4 sm:p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs">
         <div className="min-w-0">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">Career Control Center</h2>
-          <p className="text-xs sm:text-sm text-gray-500 mt-1">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">Career Control Center</h2>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
             Real-time telemetry of your opportunities, applications, and career pipeline.
           </p>
         </div>
@@ -201,53 +201,53 @@ export default function DashboardPage() {
 
       {/* Metric Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-2xs">
-          <div className="flex items-center justify-between text-gray-500 mb-2 sm:mb-3">
+        <div className="bg-white dark:bg-[#111827] p-4 sm:p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-2xs">
+          <div className="flex items-center justify-between text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">
             <span className="text-xs font-medium uppercase tracking-wider">Active Pipeline</span>
-            <FileCheck className="w-4 h-4 text-emerald-600" />
+            <FileCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <p className="text-2xl font-bold text-gray-900">{submittedApps.length}</p>
-          <span className="text-xs text-emerald-700 font-medium mt-1 block">Live tracked submissions</span>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{submittedApps.length}</p>
+          <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium mt-1 block">Live tracked submissions</span>
         </div>
 
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-2xs">
-          <div className="flex items-center justify-between text-gray-500 mb-2 sm:mb-3">
+        <div className="bg-white dark:bg-[#111827] p-4 sm:p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-2xs">
+          <div className="flex items-center justify-between text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">
             <span className="text-xs font-medium uppercase tracking-wider">Awaiting Review</span>
             <AlertTriangle className="w-4 h-4 text-amber-500" />
           </div>
-          <p className="text-2xl font-bold text-gray-900">{actionRequiredApps.length}</p>
-          <span className="text-xs text-amber-700 font-medium mt-1 block">Requires user approval</span>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{actionRequiredApps.length}</p>
+          <span className="text-xs text-amber-700 dark:text-amber-400 font-medium mt-1 block">Requires user approval</span>
         </div>
 
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-2xs">
-          <div className="flex items-center justify-between text-gray-500 mb-2 sm:mb-3">
+        <div className="bg-white dark:bg-[#111827] p-4 sm:p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-2xs">
+          <div className="flex items-center justify-between text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">
             <span className="text-xs font-medium uppercase tracking-wider">Interviews</span>
             <Calendar className="w-4 h-4 text-blue-500" />
           </div>
-          <p className="text-2xl font-bold text-gray-900">{interviewApps.length}</p>
-          <span className="text-xs text-blue-700 font-medium mt-1 block">Rounds in progress</span>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{interviewApps.length}</p>
+          <span className="text-xs text-blue-700 dark:text-blue-400 font-medium mt-1 block">Rounds in progress</span>
         </div>
 
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-2xs">
-          <div className="flex items-center justify-between text-gray-500 mb-2 sm:mb-3">
+        <div className="bg-white dark:bg-[#111827] p-4 sm:p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-2xs">
+          <div className="flex items-center justify-between text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">
             <span className="text-xs font-medium uppercase tracking-wider">Avg Match Rate</span>
-            <TrendingUp className="w-4 h-4 text-[#05603a]" />
+            <TrendingUp className="w-4 h-4 text-[#05603a] dark:text-emerald-400" />
           </div>
-          <p className="text-2xl font-bold text-gray-900">89%</p>
-          <span className="text-xs text-emerald-700 font-medium mt-1 block">Across target resumes</span>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">89%</p>
+          <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium mt-1 block">Across target resumes</span>
         </div>
       </div>
 
       {/* Action Required Banner if any */}
       {actionRequiredApps.length > 0 && (
-        <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/70 border border-amber-200">
+        <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60">
           <div className="flex items-start gap-3 sm:gap-4">
-            <div className="p-2 bg-amber-100 text-amber-800 rounded-xl shrink-0">
+            <div className="p-2 bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 rounded-xl shrink-0">
               <ShieldAlert className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-bold text-amber-900">Human Approval Required</h3>
-              <p className="text-xs text-amber-700 mt-0.5">
+              <h3 className="text-sm font-bold text-amber-900 dark:text-amber-200">Human Approval Required</h3>
+              <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
                 You have {actionRequiredApps.length} application(s) with pre-filled fields or security verification awaiting your review.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -255,7 +255,7 @@ export default function DashboardPage() {
                   <Link
                     key={app.id || app._id}
                     to={`/applications/${app.id || app._id}`}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-amber-200 text-amber-900 text-xs font-semibold rounded-lg hover:bg-amber-100 transition-colors shadow-2xs"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-800 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs font-semibold rounded-lg hover:bg-amber-100 dark:hover:bg-gray-700 transition-colors shadow-2xs"
                   >
                     <span>{app.company} ({app.role})</span>
                     <ArrowRight className="w-3 h-3" />
@@ -270,31 +270,31 @@ export default function DashboardPage() {
       {/* Two Column Layout: Applications & Opportunities */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-8">
         {/* Left Column: Recent Applications */}
-        <div className="lg:col-span-7 bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-xs space-y-4">
+        <div className="lg:col-span-7 bg-white dark:bg-[#111827] p-4 sm:p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm sm:text-base font-bold text-gray-900">Recent Applications</h3>
-            <Link to="/applications" className="text-xs font-semibold text-[#05603a] hover:underline flex items-center gap-1">
+            <h3 className="text-sm sm:text-base font-bold text-gray-900 dark:text-gray-100">Recent Applications</h3>
+            <Link to="/applications" className="text-xs font-semibold text-[#05603a] dark:text-emerald-400 hover:underline flex items-center gap-1">
               View All ({applications.length}) <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
           {applications.length === 0 ? (
-            <div className="text-center py-10 sm:py-12 text-gray-400">
-              <FileCheck className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+            <div className="text-center py-10 sm:py-12 text-gray-400 dark:text-gray-500">
+              <FileCheck className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
               <p className="text-sm">No applications started yet.</p>
-              <p className="text-xs text-gray-500 mt-1">Sync your inbox or paste a job email to trigger the pipeline.</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Sync your inbox or paste a job email to trigger the pipeline.</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-gray-100 dark:divide-gray-800">
               {applications.slice(0, 5).map((app) => (
                 <div key={app.id || app._id} className="py-3 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center font-bold text-gray-700 text-xs sm:text-sm shrink-0">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center font-bold text-gray-700 dark:text-gray-300 text-xs sm:text-sm shrink-0">
                       {app.company?.charAt(0) || 'C'}
                     </div>
                     <div className="min-w-0">
-                      <h4 className="text-xs sm:text-sm font-bold text-gray-900 truncate">{app.company}</h4>
-                      <p className="text-[11px] sm:text-xs text-gray-500 truncate">{app.role}</p>
+                      <h4 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-gray-100 truncate">{app.company}</h4>
+                      <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">{app.role}</p>
                     </div>
                   </div>
 
@@ -302,12 +302,12 @@ export default function DashboardPage() {
                     <span
                       className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold ${
                         app.status === 'SUBMITTED'
-                          ? 'bg-emerald-50 text-[#05603a]'
+                          ? 'bg-emerald-50 dark:bg-emerald-950/80 text-[#05603a] dark:text-emerald-300'
                           : app.status === 'READY_FOR_REVIEW'
-                          ? 'bg-amber-50 text-amber-700'
+                          ? 'bg-amber-50 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300'
                           : app.status === 'INTERVIEW'
-                          ? 'bg-blue-50 text-blue-700'
-                          : 'bg-gray-100 text-gray-700'
+                          ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
                       }`}
                     >
                       {app.status}
@@ -315,7 +315,7 @@ export default function DashboardPage() {
 
                     <Link
                       to={`/applications/${app.id || app._id}`}
-                      className="p-1 sm:p-1.5 rounded-lg text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+                      className="p-1 sm:p-1.5 rounded-lg text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                       aria-label="View application details"
                     >
                       <ChevronRight className="w-4 h-4" />
@@ -328,39 +328,39 @@ export default function DashboardPage() {
         </div>
 
         {/* Right Column: New Opportunities & Matches */}
-        <div className="lg:col-span-5 bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-xs space-y-4">
+        <div className="lg:col-span-5 bg-white dark:bg-[#111827] p-4 sm:p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm sm:text-base font-bold text-gray-900">Detected Opportunities</h3>
-            <Link to="/opportunities" className="text-xs font-semibold text-[#05603a] hover:underline flex items-center gap-1">
+            <h3 className="text-sm sm:text-base font-bold text-gray-900 dark:text-gray-100">Detected Opportunities</h3>
+            <Link to="/opportunities" className="text-xs font-semibold text-[#05603a] dark:text-emerald-400 hover:underline flex items-center gap-1">
               View All ({opportunities.length}) <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
           {opportunities.length === 0 ? (
-            <div className="text-center py-10 sm:py-12 text-gray-400">
-              <Sparkles className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+            <div className="text-center py-10 sm:py-12 text-gray-400 dark:text-gray-500">
+              <Sparkles className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
               <p className="text-sm">No opportunities detected yet.</p>
-              <p className="text-xs text-gray-500 mt-1">Use "Sync Career Emails" in the top bar to ingest samples.</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Use "Sync Career Emails" in the top bar to ingest samples.</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-gray-100 dark:divide-gray-800">
               {opportunities.slice(0, 4).map((opp) => (
                 <div key={opp.id || opp._id} className="py-3 flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <h4 className="text-xs sm:text-sm font-semibold text-gray-900 truncate">{opp.company}</h4>
-                    <p className="text-[11px] sm:text-xs text-gray-500 truncate">{opp.role}</p>
-                    <span className="text-[10px] sm:text-[11px] text-emerald-700 font-medium">
+                    <h4 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{opp.company}</h4>
+                    <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">{opp.role}</p>
+                    <span className="text-[10px] sm:text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
                       ✓ {opp.eligibility_status || 'ELIGIBLE'}
                     </span>
                   </div>
 
                   <div className="text-right shrink-0">
-                    <span className="text-[11px] sm:text-xs font-bold text-[#05603a] bg-emerald-50 px-2 py-0.5 rounded-md">
+                    <span className="text-[11px] sm:text-xs font-bold text-[#05603a] dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/80 px-2 py-0.5 rounded-md">
                       {opp.match_score || 88}% Match
                     </span>
                     <Link
                       to={`/opportunities/${opp.id || opp._id}`}
-                      className="block text-[10px] sm:text-[11px] text-gray-400 hover:text-gray-900 mt-1"
+                      className="block text-[10px] sm:text-[11px] text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 mt-1"
                     >
                       Inspect JD →
                     </Link>

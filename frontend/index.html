@@ -23,7 +23,7 @@
     (function() {
       try {
         var saved = localStorage.getItem('applyzen_theme');
-        var isDark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        var isDark = saved === 'dark'; // Strictly default to light mode unless explicitly dark
         if (isDark) {
           document.documentElement.classList.add('dark');
           document.documentElement.setAttribute('data-theme', 'dark');

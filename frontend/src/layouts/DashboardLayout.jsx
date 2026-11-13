@@ -62,12 +62,12 @@ export default function DashboardLayout() {
   const [showNotificationMenu, setShowNotificationMenu] = useState(false);
   const [notifications, setNotifications] = useState([]);
 
-  // Theme state: light or dark (persisted in localStorage)
+  // Theme state: light or dark (persisted in localStorage, strictly default to 'light')
   const [theme, setTheme] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('applyzen_theme');
-      if (saved) return saved;
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      if (saved === 'dark') return 'dark';
+      return 'light'; // Strictly default to light mode
     }
     return 'light';
   });

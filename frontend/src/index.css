@@ -72,6 +72,23 @@ html.dark [class*="bg-[#fbfdfc]"],
   background-color: #0b0f17 !important;
 }
 
+/* Gradient overrides for dark mode to prevent washed-out white gradients */
+html.dark [class*="from-emerald-50"],
+[data-theme="dark"] [class*="from-emerald-50"] {
+  background-image: linear-gradient(to right, rgba(6, 78, 59, 0.4), #111827 45%, #111827 100%) !important;
+  border-color: rgba(5, 150, 105, 0.3) !important;
+}
+
+html.dark [class*="to-white"],
+[data-theme="dark"] [class*="to-white"] {
+  --tw-gradient-to: #111827 var(--tw-gradient-to-position) !important;
+}
+
+html.dark [class*="via-white"],
+[data-theme="dark"] [class*="via-white"] {
+  --tw-gradient-via: #111827 var(--tw-gradient-via-position) !important;
+}
+
 html.dark aside,
 [data-theme="dark"] aside,
 html.dark header,
