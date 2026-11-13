@@ -31,7 +31,33 @@ export default function SettingsPage() {
   const [selectedModel, setSelectedModel] = useState('zen-4-turbo');
   const [temperature, setTemperature] = useState(80);
   const [responseLength, setResponseLength] = useState('Balanced');
-  const [theme, setTheme] = useState('Light');
+  const [theme, setTheme] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('applyzen_theme');
+      if (saved === 'dark') return 'Dark';
+      if (saved === 'light') return 'Light';
+    }
+    return 'Light';
+  });
+
+  const handleThemeSelect = (newTheme) => {
+    setTheme(newTheme);
+    const root = document.documentElement;
+    let effective = 'light';
+    if (newTheme === 'Dark') effective = 'dark';
+    else if (newTheme === 'System') {
+      effective = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    if (effective === 'dark') {
+      root.classList.add('dark');
+      root.style.colorScheme = 'dark';
+    } else {
+      root.classList.remove('dark');
+      root.style.colorScheme = 'light';
+    }
+    localStorage.setItem('applyzen_theme', effective);
+    window.dispatchEvent(new CustomEvent('applyzen-theme-change', { detail: effective }));
+  };
 
   // Connected Accounts State (Image 3)
   const [gmailConnected, setGmailConnected] = useState(true);
@@ -315,7 +341,7 @@ export default function SettingsPage() {
           <div className="grid grid-cols-3 gap-3 pt-2">
             {/* Light Option */}
             <div
-              onClick={() => setTheme('Light')}
+              onClick={() => handleThemeSelect('Light')}
               className={`p-4 rounded-xl border-2 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
                 theme === 'Light'
                   ? 'border-emerald-600 bg-white shadow-xs'
@@ -328,7 +354,7 @@ export default function SettingsPage() {
 
             {/* Dark Option */}
             <div
-              onClick={() => setTheme('Dark')}
+              onClick={() => handleThemeSelect('Dark')}
               className={`p-4 rounded-xl border-2 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
                 theme === 'Dark'
                   ? 'border-emerald-600 bg-[#0f172a] text-white shadow-xs'
@@ -341,7 +367,7 @@ export default function SettingsPage() {
 
             {/* System Option */}
             <div
-              onClick={() => setTheme('System')}
+              onClick={() => handleThemeSelect('System')}
               className={`p-4 rounded-xl border-2 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
                 theme === 'System'
                   ? 'border-emerald-600 bg-gradient-to-b from-gray-200 to-gray-400 text-gray-900 shadow-xs'

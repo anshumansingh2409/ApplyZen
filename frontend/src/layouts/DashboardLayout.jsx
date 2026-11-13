@@ -16,7 +16,9 @@ import {
   Clock,
   Layers,
   Menu,
-  X
+  X,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { opportunityService } from '../services/opportunity.service';
 import { profileService } from '../services/assistant.service';
@@ -59,6 +61,47 @@ export default function DashboardLayout() {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotificationMenu, setShowNotificationMenu] = useState(false);
   const [notifications, setNotifications] = useState([]);
+
+  // Theme state: light or dark (persisted in localStorage)
+  const [theme, setTheme] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('applyzen_theme');
+      if (saved) return saved;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return 'light';
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+      root.style.colorScheme = 'dark';
+    } else {
+      root.classList.remove('dark');
+      root.style.colorScheme = 'light';
+    }
+    localStorage.setItem('applyzen_theme', theme);
+  }, [theme]);
+
+  // Synchronize with external theme changes (such as from SettingsPage)
+  useEffect(() => {
+    const handleThemeEvent = (e) => {
+      if (e.detail && (e.detail === 'dark' || e.detail === 'light')) {
+        setTheme(e.detail);
+      }
+    };
+    window.addEventListener('applyzen-theme-change', handleThemeEvent);
+    return () => window.removeEventListener('applyzen-theme-change', handleThemeEvent);
+  }, []);
+
+  const toggleTheme = () => {
+    setTheme((prev) => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      window.dispatchEvent(new CustomEvent('applyzen-theme-change', { detail: next }));
+      return next;
+    });
+  };
 
   const profileMenuRef = useRef(null);
   const notificationMenuRef = useRef(null);
@@ -345,6 +388,21 @@ export default function DashboardLayout() {
                 </div>
               )}
             </div>
+
+            {/* Light / Dark Mode Toggle (Next to Notifications) */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="p-1.5 sm:p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all duration-200 cursor-pointer focus:outline-none shrink-0"
+              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              aria-label="Toggle light and dark mode"
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-4 h-4 text-amber-400 transition-transform duration-300 hover:rotate-45" />
+              ) : (
+                <Moon className="w-4 h-4 text-gray-600 transition-transform duration-300 hover:-rotate-12" />
+              )}
+            </button>
 
             {/* Circular User Profile Avatar - Sleek, Small & Far Right */}
             <div className="relative pl-2 sm:pl-3 border-l-2 border-gray-300" ref={profileMenuRef}>

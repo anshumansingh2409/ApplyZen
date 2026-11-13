@@ -93,6 +93,22 @@ async def test_no_dummy_skills_or_fake_stipend():
     assert opp["deadline"] is not None
 
 
+@pytest.mark.asyncio
+async def test_no_deadline_in_email_yields_not_given():
+    text = """
+    Subject: Campus Hiring Drive - Athenian Tech
+    From: tpo@campus.edu
+    
+    Athenian Tech is visiting our campus for hiring fresh talent.
+    Role: Associate Consultant
+    Register on link https://forms.gle/xyz
+    """
+    opp = await opportunity_agent.extract_opportunity(text, email_received_at="2026-11-13T10:00:00Z")
+    # When no deadline is given, do not invent one
+    assert opp["deadline"] is None
+    assert opp["deadline_raw"] == "Not given"
+
+
 def test_interview_detection_penthara():
     subj1 = "Anshuman Singh | Software Developer Intern |Technical Challenge Round | Galgotias University | Penthara Technologies"
     body1 = """

@@ -1008,20 +1008,11 @@ class OpportunityAgent:
             url_match = re.search(r"https?://[^\s<>\"']+", text)
             application_url = url_match.group(0) if url_match else None
 
-        # 5. Extract Deadline strictly from email text
+        # 5. Extract Deadline strictly from email text (do not invent default deadline if not provided)
         deadline_iso, deadline_raw = self.parse_deadline(text)
         if not deadline_iso:
-            base_time = None
-            if email_received_at:
-                try:
-                    base_time = datetime.fromisoformat(email_received_at.replace("Z", "+00:00"))
-                except Exception:
-                    pass
-            if not base_time:
-                base_time = datetime.now(timezone.utc)
-            auto_dt = (base_time + timedelta(days=3)).replace(hour=23, minute=59, second=0, microsecond=0)
-            deadline_iso = auto_dt.isoformat()
-            deadline_raw = f"{auto_dt.day} {auto_dt.strftime('%b')} {auto_dt.year}, 11:59 PM"
+            deadline_iso = None
+            deadline_raw = "Not given"
 
         # 6. Extract Skills (Do not inject fake default skills)
         skill_catalog = [

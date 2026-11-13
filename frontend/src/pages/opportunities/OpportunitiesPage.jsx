@@ -40,28 +40,20 @@ const formatEmailDate = (dateStr) => {
   }
 };
 
-const getTimeLeftInfo = (deadlineStr, arrivalStr) => {
+const getTimeLeftInfo = (deadlineStr) => {
+  if (!deadlineStr || deadlineStr === 'Not given') {
+    return { label: 'Time Left: Not given', isClosed: false, isMissing: true };
+  }
   let target = null;
-  if (deadlineStr) {
-    try {
-      const parsed = new Date(deadlineStr);
-      if (!isNaN(parsed.getTime())) {
-        target = parsed;
-      }
-    } catch {}
-  }
-  // If deadline is missing or unparseable, estimate a 3-day active registration window from arrival
-  if (!target && arrivalStr) {
-    try {
-      const arr = new Date(arrivalStr);
-      if (!isNaN(arr.getTime())) {
-        target = new Date(arr.getTime() + 3 * 24 * 60 * 60 * 1000);
-      }
-    } catch {}
-  }
+  try {
+    const parsed = new Date(deadlineStr);
+    if (!isNaN(parsed.getTime())) {
+      target = parsed;
+    }
+  } catch {}
 
   if (!target) {
-    return { label: 'Active Drive', isClosed: false, isMissing: false };
+    return { label: 'Time Left: Not given', isClosed: false, isMissing: true };
   }
   const now = new Date();
   const diffMs = target.getTime() - now.getTime();
@@ -700,17 +692,19 @@ export default function OpportunitiesPage() {
                   {/* Right side: Time Left Badge right next to Delete Button (Match % removed) */}
                   <div className="flex items-center gap-2 shrink-0">
                     {(() => {
-                      const tl = getTimeLeftInfo(opp.deadline, opp.email_received_at || opp.email_timestamp || opp.created_at);
+                      const tl = getTimeLeftInfo(opp.deadline);
                       return (
                         <span
                           className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] font-bold border flex items-center gap-1 shadow-2xs ${
                             tl.isClosed
                               ? 'bg-red-50 text-red-700 border-red-200'
+                              : tl.isMissing
+                              ? 'bg-gray-50 text-gray-600 border-gray-200'
                               : 'bg-amber-50 text-amber-800 border-amber-200'
                           }`}
-                          title={tl.isClosed ? 'Registration is closed' : 'Registration time left'}
+                          title={tl.isClosed ? 'Registration is closed' : tl.isMissing ? 'Deadline not provided in email notice' : 'Registration time left'}
                         >
-                          <Clock className="w-3 h-3 shrink-0" />
+                          <Clock className={`w-3 h-3 shrink-0 ${tl.isMissing ? 'text-gray-400' : ''}`} />
                           <span>{tl.label}</span>
                         </span>
                       );
@@ -816,14 +810,18 @@ export default function OpportunitiesPage() {
                     <span>Arrival: <strong className="font-semibold text-gray-900">{formatEmailDate(opp.email_received_at || opp.email_timestamp || opp.created_at) || 'Recent'}</strong></span>
                   </span>
                   {(() => {
-                    const dlStr = opp.deadline_raw || (opp.deadline ? formatEmailDate(opp.deadline) : null);
-                    const fallbackDate = new Date(new Date(opp.email_received_at || opp.email_timestamp || opp.created_at || Date.now()).getTime() + 3 * 24 * 60 * 60 * 1000);
-                    const displayDeadline = dlStr || formatEmailDate(fallbackDate);
+                    const hasGiven = opp.deadline_raw && opp.deadline_raw !== 'Not given';
+                    const displayDeadline = hasGiven ? opp.deadline_raw : (opp.deadline ? formatEmailDate(opp.deadline) : 'Not given');
+                    const isNotGiven = displayDeadline === 'Not given';
                     return (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium">
-                        <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-medium ${
+                        isNotGiven
+                          ? 'bg-gray-50 border-gray-200 text-gray-600'
+                          : 'bg-amber-50 border-amber-200 text-amber-900'
+                      }`}>
+                        <Calendar className={`w-3.5 h-3.5 shrink-0 ${isNotGiven ? 'text-gray-400' : 'text-amber-600'}`} />
                         <span>
-                          Deadline: <strong className="font-semibold text-amber-950">{displayDeadline}</strong>
+                          Deadline: <strong className={`font-semibold ${isNotGiven ? 'text-gray-700' : 'text-amber-950'}`}>{displayDeadline}</strong>
                         </span>
                       </span>
                     );
