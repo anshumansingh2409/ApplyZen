@@ -236,13 +236,39 @@ async def accept_and_submit_opportunity(
     app_id = opp.get("application_id")
     from app.database.repositories.application_repository import application_repo
     from app.services.application_service import application_service
+    import uuid
 
     app_doc = await application_repo.get_by_id(app_id) if app_id else None
     if not app_doc:
         # If no application record exists yet, create one
+        app_id = str(uuid.uuid4())
         fields = opp.get("form_fields", [])
+        new_app = {
+            "_id": app_id,
+            "user_id": user_id,
+            "opportunity_id": opportunity_id,
+            "company": opp.get("company", "Company"),
+            "role": opp.get("role", "Software Engineer"),
+            "status": "SUBMITTED",
+            "form_fields": fields,
+            "application_url": opp.get("application_url"),
+            "google_form_url": opp.get("google_form_url"),
+            "match_score": opp.get("match_score", 90),
+            "timeline": [
+                {
+                    "title": "Application Accepted and Submitted",
+                    "description": f"Candidate reviewed and submitted application for {opp.get('company')}.",
+                    "status_tag": "SUBMITTED",
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
+            ],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await application_repo.create(new_app)
+        await opportunity_repo.update(opportunity_id, {"application_id": app_id})
         result = await application_service.review_and_submit(
-            app_id=opp_id,
+            app_id=app_id,
             user_id=user_id,
             updated_fields=fields,
             approved=True
