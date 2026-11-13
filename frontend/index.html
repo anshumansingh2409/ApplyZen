@@ -18,9 +18,25 @@
     rel="stylesheet">
   <!-- Google Identity Services (GIS) for Real Google OAuth -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- Instant Theme Initializer to prevent white flash -->
+  <script>
+    (function() {
+      try {
+        var saved = localStorage.getItem('applyzen_theme');
+        var isDark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (isDark) {
+          document.documentElement.classList.add('dark');
+          document.documentElement.setAttribute('data-theme', 'dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 
-<body class="bg-[#fbfdfc] text-[#111827] antialiased selection:bg-[#e6f4ea] selection:text-[#05603a]">
+<body class="antialiased selection:bg-[#e6f4ea] selection:text-[#05603a]">
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
 </body>

@@ -72,16 +72,29 @@ export default function DashboardLayout() {
     return 'light';
   });
 
-  useEffect(() => {
+  const applyThemeToDom = (targetTheme) => {
+    if (typeof document === 'undefined') return;
     const root = document.documentElement;
-    if (theme === 'dark') {
+    const body = document.body;
+    const isDark = targetTheme === 'dark';
+
+    root.setAttribute('data-theme', targetTheme);
+    body?.setAttribute('data-theme', targetTheme);
+
+    if (isDark) {
       root.classList.add('dark');
+      body?.classList.add('dark');
       root.style.colorScheme = 'dark';
     } else {
       root.classList.remove('dark');
+      body?.classList.remove('dark');
       root.style.colorScheme = 'light';
     }
-    localStorage.setItem('applyzen_theme', theme);
+    localStorage.setItem('applyzen_theme', targetTheme);
+  };
+
+  useEffect(() => {
+    applyThemeToDom(theme);
   }, [theme]);
 
   // Synchronize with external theme changes (such as from SettingsPage)
@@ -89,6 +102,7 @@ export default function DashboardLayout() {
     const handleThemeEvent = (e) => {
       if (e.detail && (e.detail === 'dark' || e.detail === 'light')) {
         setTheme(e.detail);
+        applyThemeToDom(e.detail);
       }
     };
     window.addEventListener('applyzen-theme-change', handleThemeEvent);
@@ -96,11 +110,10 @@ export default function DashboardLayout() {
   }, []);
 
   const toggleTheme = () => {
-    setTheme((prev) => {
-      const next = prev === 'dark' ? 'light' : 'dark';
-      window.dispatchEvent(new CustomEvent('applyzen-theme-change', { detail: next }));
-      return next;
-    });
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    applyThemeToDom(nextTheme);
+    window.dispatchEvent(new CustomEvent('applyzen-theme-change', { detail: nextTheme }));
   };
 
   const profileMenuRef = useRef(null);
@@ -216,12 +229,12 @@ export default function DashboardLayout() {
   const unreadCount = notifications.filter((n) => n.unread).length;
 
   return (
-    <div className="min-h-screen flex bg-[#fbfdfc] overflow-x-hidden">
+    <div className="min-h-screen flex bg-[#fbfdfc] dark:bg-[#0b101b] text-gray-900 dark:text-gray-100 overflow-x-hidden transition-colors duration-200">
       <DashboardSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 max-w-full lg:pl-64">
         {/* Top Header */}
-        <header className="h-16 sm:h-20 bg-white border-b border-gray-200 px-3.5 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-30 shadow-xs">
+        <header className="h-16 sm:h-20 bg-white dark:bg-[#111827] border-b border-gray-200 dark:border-gray-800 px-3.5 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-30 shadow-xs transition-colors duration-200">
           {/* Left: Mobile Sidebar Toggle */}
           <div className="flex items-center">
             <button

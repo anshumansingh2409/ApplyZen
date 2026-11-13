@@ -602,6 +602,58 @@ class GmailService:
                         synced_count += 1
                         continue
 
+                    # Check if this is an Interview Invitation / Technical Challenge Round
+                    is_interview, int_data = opportunity_agent.is_interview_invitation(text=body_text, subject=subject, from_addr=from_header)
+                    if is_interview:
+                        from app.database.repositories.application_repository import application_repo
+                        app_id = str(uuid.uuid4())
+                        comp_name = int_data.get("company") or "Company"
+                        role_name = int_data.get("role") or "Software Developer"
+                        round_name = int_data.get("round_name") or "Technical Challenge Round"
+                        int_date = int_data.get("interview_date") or "Scheduled"
+                        is_attended = int_data.get("is_attended", False)
+
+                        interview_app = {
+                            "_id": app_id,
+                            "user_id": user_id,
+                            "company": comp_name,
+                            "role": role_name,
+                            "round_name": round_name,
+                            "status": int_data.get("status", "INTERVIEW"),
+                            "is_interview": True,
+                            "is_attended": is_attended,
+                            "application_url": int_data.get("meeting_url"),
+                            "google_form_url": int_data.get("meeting_url"),
+                            "interview_details": int_data,
+                            "match_score": 92,
+                            "applied_date": int_date if int_date != "Scheduled" else datetime.now(timezone.utc).strftime("%d %b %Y"),
+                            "timeline": [
+                                {
+                                    "title": f"🎙️ {round_name} {'Completed / Attended' if is_attended else 'Scheduled'}",
+                                    "description": f"Round: {round_name}. Scheduled Date: {int_date}. Company: {comp_name}.",
+                                    "status_tag": int_data.get("status", "INTERVIEW"),
+                                    "timestamp": datetime.now(timezone.utc).isoformat()
+                                }
+                            ],
+                            "created_at": datetime.now(timezone.utc).isoformat(),
+                            "updated_at": datetime.now(timezone.utc).isoformat()
+                        }
+                        await application_repo.create(interview_app)
+                        await db.ingested_emails.update_one(
+                            {"user_id": user_id, "message_id": msg_id},
+                            {"$set": {
+                                "subject": subject,
+                                "from": from_header,
+                                "is_opportunity": False,
+                                "is_interview": True,
+                                "status": "interview_routed",
+                                "application_id": app_id,
+                                "completed_at": datetime.now(timezone.utc).isoformat()
+                            }}
+                        )
+                        synced_count += 1
+                        continue
+
                     # Strict opportunity relevance check
                     if not self._is_career_relevant(subject, body_text, from_header):
                         await db.ingested_emails.update_one(

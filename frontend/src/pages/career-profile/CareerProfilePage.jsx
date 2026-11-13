@@ -128,22 +128,43 @@ export default function CareerProfilePage() {
             { name: 'Hindi', proficiency: 'Native' }
           ],
           education: Array.isArray(data.education) && data.education.length > 0
-            ? data.education.map((edu) => ({
-                degree: edu.degree || 'Undergraduate',
-                institution: edu.institution || '',
-                board_or_university: edu.board_or_university || '',
-                major: edu.major || '',
-                start_month: edu.start_month || 'August',
-                start_year: edu.start_year || null,
-                end_month: edu.end_month || 'May',
-                end_year: edu.end_year || edu.graduation_year || null,
-                graduation_year: edu.graduation_year || edu.end_year || null,
-                score_type: edu.score_type || (edu.degree === '10th' || edu.degree === '12th' ? 'percentage' : 'cgpa'),
-                cgpa: edu.cgpa ?? null,
-                percentage: edu.percentage ?? null,
-                active_backlogs: edu.active_backlogs ?? 0,
-                total_backlogs: edu.total_backlogs ?? 0
-              }))
+            ? data.education.map((edu) => {
+                const deg = edu.degree || 'Undergraduate';
+                let inst = edu.institution || '';
+                // Never auto-fill dummy institution or leak university names into school entries
+                if (inst === 'National Institute of Technology' || inst === 'Galgotias University') {
+                  inst = '';
+                }
+                if ((deg === '10th' || deg === '12th') && (inst.toLowerCase().includes('university') || inst.toLowerCase().includes('polytechnic') || inst.toLowerCase().includes('campus'))) {
+                  inst = '';
+                }
+                let major = edu.major || '';
+                if (deg === '10th') {
+                  major = '';
+                } else if (deg === '12th' && (major.includes('Engineering') || major.includes('Computer Science'))) {
+                  major = 'Science (PCM)';
+                }
+                let endYr = edu.end_year || edu.graduation_year || null;
+                if ((deg === '10th' || deg === '12th') && endYr && endYr > 2024) {
+                  endYr = null;
+                }
+                return {
+                  degree: deg,
+                  institution: inst,
+                  board_or_university: edu.board_or_university || '',
+                  major,
+                  start_month: edu.start_month || '',
+                  start_year: edu.start_year || null,
+                  end_month: edu.end_month || '',
+                  end_year: endYr,
+                  graduation_year: endYr,
+                  score_type: edu.score_type || (deg === '10th' || deg === '12th' || deg === 'Diploma' ? 'percentage' : 'cgpa'),
+                  cgpa: edu.cgpa ?? null,
+                  percentage: edu.percentage ?? null,
+                  active_backlogs: edu.active_backlogs ?? 0,
+                  total_backlogs: edu.total_backlogs ?? 0
+                };
+              })
             : [
                 {
                   degree: 'Undergraduate',
@@ -1204,39 +1225,169 @@ export default function CareerProfilePage() {
                 </div>
               </div>
 
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const currentEdu = profile?.education || [];
-                    setProfile({
-                      ...profile,
-                      education: [
-                        ...currentEdu,
-                        {
-                          degree: 'Undergraduate',
-                          institution: '',
-                          board_or_university: '',
-                          major: '',
-                          start_month: 'August',
-                          start_year: null,
-                          end_month: 'May',
-                          end_year: null,
-                          graduation_year: null,
-                          score_type: 'cgpa',
-                          cgpa: null,
-                          percentage: null,
-                          active_backlogs: 0,
-                          total_backlogs: 0
-                        }
-                      ]
-                    });
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-[#05603a] text-xs font-bold hover:bg-emerald-100 transition-colors cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Qualification</span>
-                </button>
+              {/* Quick Add Qualification Buttons & Level Selection */}
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-3">
+                <span className="text-xs text-gray-500 font-medium">Add Academic Qualifications:</span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentEdu = profile?.education || [];
+                      setProfile({
+                        ...profile,
+                        education: [
+                          ...currentEdu,
+                          {
+                            degree: '10th',
+                            institution: '',
+                            board_or_university: 'CBSE',
+                            major: '',
+                            start_year: null,
+                            end_year: null,
+                            graduation_year: null,
+                            score_type: 'percentage',
+                            percentage: null,
+                            cgpa: null,
+                            active_backlogs: 0,
+                            total_backlogs: 0
+                          }
+                        ]
+                      });
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-[#05603a] text-xs font-semibold transition-colors cursor-pointer border border-emerald-200/60"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>10th (Secondary)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentEdu = profile?.education || [];
+                      setProfile({
+                        ...profile,
+                        education: [
+                          ...currentEdu,
+                          {
+                            degree: '12th',
+                            institution: '',
+                            board_or_university: 'CBSE',
+                            major: 'Science (PCM)',
+                            start_year: null,
+                            end_year: null,
+                            graduation_year: null,
+                            score_type: 'percentage',
+                            percentage: null,
+                            cgpa: null,
+                            active_backlogs: 0,
+                            total_backlogs: 0
+                          }
+                        ]
+                      });
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition-colors cursor-pointer border border-blue-200/60"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>12th (Higher Sec)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentEdu = profile?.education || [];
+                      setProfile({
+                        ...profile,
+                        education: [
+                          ...currentEdu,
+                          {
+                            degree: 'Diploma',
+                            institution: '',
+                            board_or_university: '',
+                            major: '',
+                            start_year: null,
+                            end_year: null,
+                            graduation_year: null,
+                            score_type: 'percentage',
+                            percentage: null,
+                            cgpa: null,
+                            active_backlogs: 0,
+                            total_backlogs: 0
+                          }
+                        ]
+                      });
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-semibold transition-colors cursor-pointer border border-purple-200/60"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Diploma</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentEdu = profile?.education || [];
+                      setProfile({
+                        ...profile,
+                        education: [
+                          ...currentEdu,
+                          {
+                            degree: 'Undergraduate',
+                            institution: '',
+                            board_or_university: '',
+                            major: '',
+                            start_month: 'August',
+                            start_year: null,
+                            end_month: 'May',
+                            end_year: null,
+                            graduation_year: null,
+                            score_type: 'cgpa',
+                            cgpa: null,
+                            percentage: null,
+                            active_backlogs: 0,
+                            total_backlogs: 0
+                          }
+                        ]
+                      });
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Undergraduate (UG)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentEdu = profile?.education || [];
+                      setProfile({
+                        ...profile,
+                        education: [
+                          ...currentEdu,
+                          {
+                            degree: 'Postgraduate',
+                            institution: '',
+                            board_or_university: '',
+                            major: '',
+                            start_month: 'August',
+                            start_year: null,
+                            end_month: 'May',
+                            end_year: null,
+                            graduation_year: null,
+                            score_type: 'cgpa',
+                            cgpa: null,
+                            percentage: null,
+                            active_backlogs: 0,
+                            total_backlogs: 0
+                          }
+                        ]
+                      });
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-semibold transition-colors cursor-pointer border border-amber-200/60"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Postgraduate (PG)</span>
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -1291,22 +1442,52 @@ export default function CareerProfilePage() {
                               updated[idx].degree = newDeg;
 
                               if (newDeg === '10th') {
-                                updated[idx].score_type = updated[idx].score_type || 'percentage';
+                                updated[idx].score_type = 'percentage';
                                 updated[idx].major = ''; // Clear stream for 10th
                                 updated[idx].active_backlogs = 0;
+                                updated[idx].total_backlogs = 0;
+                                updated[idx].start_year = null;
+                                updated[idx].start_month = '';
+                                updated[idx].end_month = '';
+                                const curInst = (updated[idx].institution || '').toLowerCase();
+                                if (oldDeg !== '10th' && (curInst.includes('univ') || curInst.includes('college') || curInst.includes('institute') || curInst.includes('polytechnic') || curInst.includes('technology') || curInst.includes('galgotias'))) {
+                                  updated[idx].institution = '';
+                                }
+                                if (updated[idx].end_year && updated[idx].end_year > 2024) {
+                                  updated[idx].end_year = null;
+                                  updated[idx].graduation_year = null;
+                                }
                               } else if (newDeg === '12th') {
-                                updated[idx].score_type = updated[idx].score_type || 'percentage';
-                                if (oldDeg === '10th' || !updated[idx].major) {
+                                updated[idx].score_type = 'percentage';
+                                updated[idx].active_backlogs = 0;
+                                updated[idx].total_backlogs = 0;
+                                updated[idx].start_year = null;
+                                updated[idx].start_month = '';
+                                updated[idx].end_month = '';
+                                if (!updated[idx].major || updated[idx].major.includes('Engineering') || updated[idx].major.includes('Computer Science')) {
                                   updated[idx].major = 'Science (PCM)';
                                 }
-                                updated[idx].active_backlogs = 0;
+                                const curInst = (updated[idx].institution || '').toLowerCase();
+                                if (oldDeg !== '12th' && (curInst.includes('univ') || curInst.includes('institute') || curInst.includes('polytechnic') || curInst.includes('technology') || curInst.includes('galgotias'))) {
+                                  updated[idx].institution = '';
+                                }
+                                if (updated[idx].end_year && updated[idx].end_year > 2024) {
+                                  updated[idx].end_year = null;
+                                  updated[idx].graduation_year = null;
+                                }
                               } else if (newDeg === 'Diploma') {
                                 updated[idx].score_type = updated[idx].score_type || 'percentage';
                                 if (oldDeg === '10th' || oldDeg === '12th') {
+                                  updated[idx].institution = '';
                                   updated[idx].major = '';
                                 }
                               } else {
                                 updated[idx].score_type = updated[idx].score_type || 'cgpa';
+                                if (oldDeg === '10th' || oldDeg === '12th') {
+                                  updated[idx].institution = '';
+                                  updated[idx].major = '';
+                                  updated[idx].board_or_university = '';
+                                }
                               }
                               setProfile({ ...profile, education: updated });
                             }}
@@ -1331,7 +1512,7 @@ export default function CareerProfilePage() {
                             <input
                               type="text"
                               required
-                              placeholder="Enter 10th School Name"
+                              placeholder="Enter 10th School Name (e.g. St. Xavier's / DPS / Kendriya Vidyalaya / High School)"
                               value={edu.institution || ''}
                               onChange={(e) => {
                                 const updated = [...profile.education];
@@ -1347,7 +1528,7 @@ export default function CareerProfilePage() {
                             <input
                               type="text"
                               required
-                              placeholder="e.g. CBSE / ICSE / State Board"
+                              placeholder="e.g. CBSE / ICSE / State Board / UP Board"
                               value={edu.board_or_university || ''}
                               onChange={(e) => {
                                 const updated = [...profile.education];

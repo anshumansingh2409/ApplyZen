@@ -108,11 +108,11 @@ class AuthService:
             "bio": f"Hi, I'm {data.full_name}. Passionate engineer looking for impactful career opportunities.",
             "education": [
                 {
-                    "institution": "National Institute of Technology",
-                    "degree": "B.Tech",
-                    "major": "Computer Science & Engineering",
-                    "graduation_year": 2025,
-                    "cgpa": 8.85
+                    "institution": "",
+                    "degree": "Undergraduate",
+                    "major": "",
+                    "graduation_year": None,
+                    "cgpa": None
                 }
             ],
             "skills": [
@@ -475,11 +475,11 @@ class AuthService:
                 "bio": f"Hi, I'm {full_name}. Software professional leveraging ApplyZen autonomous automation.",
                 "education": [
                     {
-                        "institution": "National Institute of Technology",
-                        "degree": "B.Tech",
-                        "major": "Computer Science & Engineering",
-                        "graduation_year": 2025,
-                        "cgpa": 8.85
+                        "institution": "",
+                        "degree": "Undergraduate",
+                        "major": "",
+                        "graduation_year": None,
+                        "cgpa": None
                     }
                 ],
                 "skills": [
@@ -681,11 +681,11 @@ class AuthService:
                 "bio": f"Hi, I'm {full_name}. Software professional leveraging ApplyZen autonomous automation.",
                 "education": [
                     {
-                        "institution": "National Institute of Technology",
-                        "degree": "B.Tech",
-                        "major": "Computer Science & Engineering",
-                        "graduation_year": 2025,
-                        "cgpa": 8.85
+                        "institution": "",
+                        "degree": "Undergraduate",
+                        "major": "",
+                        "graduation_year": None,
+                        "cgpa": None
                     }
                 ],
                 "skills": [

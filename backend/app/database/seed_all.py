@@ -82,13 +82,13 @@ async def seed_database(custom_uri: str = None):
             "bio": "Hi, I'm Anshuman Singh. Senior Software & AI Engineer passionate about building scalable microservices and autonomous agents.",
             "education": [
                 {
-                    "institution": "National Institute of Technology",
-                    "degree": "B.Tech",
-                    "major": "Computer Science & Engineering",
-                    "start_year": 2021,
-                    "end_year": 2025,
-                    "graduation_year": 2025,
-                    "cgpa": 8.92
+                    "institution": "",
+                    "degree": "Undergraduate",
+                    "major": "",
+                    "start_year": None,
+                    "end_year": None,
+                    "graduation_year": None,
+                    "cgpa": None
                 }
             ],
             "skills": [
