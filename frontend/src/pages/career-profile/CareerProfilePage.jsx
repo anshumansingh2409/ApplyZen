@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   User,
   GraduationCap,
@@ -58,17 +59,27 @@ const MONTHS = [
 ];
 
 export default function CareerProfilePage() {
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'personal';
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
-  const [activeTab, setActiveTab] = useState('personal');
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [newSkill, setNewSkill] = useState({ name: '', category: 'Technical', level: 'Intermediate' });
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && TABS.some((t) => t.id === tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         const data = await profileService.getProfile();
+        const isFresherUser = Boolean(data.is_fresher);
         const sanitized = {
           ...data,
           avatar_url: data.avatar_url || '',
@@ -94,7 +105,7 @@ export default function CareerProfilePage() {
           permanent_postal_code: data.permanent_postal_code || data.postal_code || '',
           permanent_country: data.permanent_country || data.country || 'India',
 
-          is_fresher: data.is_fresher ?? false,
+          is_fresher: isFresherUser,
           work_authorization: data.work_authorization || {
             authorized_in_target_country: true,
             requires_sponsorship: false,
@@ -116,61 +127,56 @@ export default function CareerProfilePage() {
             { name: 'English', proficiency: 'Fluent' },
             { name: 'Hindi', proficiency: 'Native' }
           ],
-          education: data.education && data.education.length > 0 ? data.education : [
-            {
-              institution: 'Delhi Public School',
-              degree: '10th',
-              board_or_university: 'CBSE',
-              major: 'General',
-              start_year: 2017,
-              end_year: 2019,
-              score_type: 'percentage',
-              percentage: 91.5,
-              cgpa: null,
-              active_backlogs: 0
-            },
-            {
-              institution: 'Delhi Public School',
-              degree: '12th',
-              board_or_university: 'CBSE',
-              major: 'Science (PCM)',
-              start_year: 2019,
-              end_year: 2021,
-              score_type: 'percentage',
-              percentage: 89.2,
-              cgpa: null,
-              active_backlogs: 0
-            },
-            {
-              institution: 'National Institute of Technology',
-              degree: 'Undergraduate',
-              board_or_university: 'NIT Trichy',
-              major: 'Computer Science & Engineering',
-              start_month: 'August',
-              start_year: 2021,
-              end_month: 'May',
-              end_year: 2025,
-              graduation_year: 2025,
-              score_type: 'cgpa',
-              cgpa: 8.85,
-              percentage: null,
-              active_backlogs: 0,
-              total_backlogs: 0
-            }
-          ],
-          experience: data.experience || [
-            {
-              company: 'Tech Innovators Inc',
-              role: 'Software Engineering Intern',
-              employment_type: 'Internship',
-              location: 'Bengaluru / Remote',
-              is_current: false,
-              start_date: '2024-05',
-              end_date: '2024-08',
-              description: 'Architected event-driven microservices, accelerated query throughput by 40%, and created automated regression test pipelines.',
-              skills_used: ['Python', 'FastAPI', 'MongoDB', 'Docker']
-            }
-          ],
+          education: Array.isArray(data.education) && data.education.length > 0
+            ? data.education.map((edu) => ({
+                degree: edu.degree || 'Undergraduate',
+                institution: edu.institution || '',
+                board_or_university: edu.board_or_university || '',
+                major: edu.major || '',
+                start_month: edu.start_month || 'August',
+                start_year: edu.start_year || null,
+                end_month: edu.end_month || 'May',
+                end_year: edu.end_year || edu.graduation_year || null,
+                graduation_year: edu.graduation_year || edu.end_year || null,
+                score_type: edu.score_type || (edu.degree === '10th' || edu.degree === '12th' ? 'percentage' : 'cgpa'),
+                cgpa: edu.cgpa ?? null,
+                percentage: edu.percentage ?? null,
+                active_backlogs: edu.active_backlogs ?? 0,
+                total_backlogs: edu.total_backlogs ?? 0
+              }))
+            : [
+                {
+                  degree: 'Undergraduate',
+                  institution: '',
+                  board_or_university: '',
+                  major: '',
+                  start_month: 'August',
+                  start_year: null,
+                  end_month: 'May',
+                  end_year: null,
+                  graduation_year: null,
+                  score_type: 'cgpa',
+                  cgpa: null,
+                  percentage: null,
+                  active_backlogs: 0,
+                  total_backlogs: 0
+                }
+              ],
+          experience: Array.isArray(data.experience)
+            ? data.experience
+            : (isFresherUser ? [] : [
+                {
+                  company: 'Tech Innovators Inc',
+                  role: 'Software Engineering Intern',
+                  employment_type: 'Internship',
+                  location: 'Bengaluru / Remote',
+                  is_current: false,
+                  start_date: '2024-05',
+                  end_date: '2024-08',
+                  description: 'Architected event-driven microservices, accelerated query throughput by 40%, and created automated regression test pipelines.',
+                  skills_used: ['Python', 'FastAPI', 'MongoDB', 'Docker']
+                }
+              ]),
           projects: data.projects && data.projects.length > 0 ? data.projects : [
             {
               title: 'applyZen Autonomous Career Copilot',
@@ -323,8 +329,26 @@ export default function CareerProfilePage() {
     setSaving(true);
     setNotice('');
     try {
-      const updated = await profileService.updateProfile(profile);
-      setProfile(updated);
+      // Filter out empty experience items if fresher mode is active
+      const cleanedExperience = profile.is_fresher
+        ? (profile.experience || []).filter(
+            (exp) => (exp.company && exp.company.trim()) || (exp.role && exp.role.trim())
+          )
+        : (profile.experience || []);
+
+      const payload = {
+        ...profile,
+        is_fresher: Boolean(profile.is_fresher),
+        experience: cleanedExperience
+      };
+
+      const updated = await profileService.updateProfile(payload);
+      setProfile((prev) => ({
+        ...prev,
+        ...updated,
+        is_fresher: updated?.is_fresher !== undefined ? Boolean(updated.is_fresher) : Boolean(payload.is_fresher),
+        experience: updated?.experience !== undefined ? updated.experience : cleanedExperience
+      }));
       setNotice('Profile updated successfully! All verified details are ready for auto-filling.');
       setTimeout(() => setNotice(''), 3500);
     } catch (err) {
@@ -849,15 +873,55 @@ export default function CareerProfilePage() {
               </div>
 
               {/* Fresher Mode Toggle */}
-              <div className="p-3 bg-gray-50/80 rounded-xl flex items-center justify-between border border-gray-200/70">
-                <span className="text-xs font-semibold text-gray-700">I am a fresher / entry-level candidate (No corporate experience required)</span>
-                <input
-                  type="checkbox"
-                  checked={profile?.is_fresher || false}
-                  onChange={(e) => setProfile({ ...profile, is_fresher: e.target.checked })}
-                  className="rounded text-[#05603a] w-4 h-4"
-                />
+              <div
+                className={`p-4 rounded-xl flex items-center justify-between border transition-all ${
+                  profile?.is_fresher
+                    ? 'bg-emerald-50/70 border-emerald-300 ring-1 ring-emerald-200'
+                    : 'bg-gray-50/80 border-gray-200/70'
+                }`}
+              >
+                <div className="space-y-0.5 pr-4">
+                  <span className="text-xs font-bold text-gray-900 block">
+                    I am a fresher / entry-level candidate
+                  </span>
+                  <span className="text-[11px] text-gray-500 block">
+                    No corporate experience required. You can leave work experience blank or add optional internships.
+                  </span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(profile?.is_fresher)}
+                    onChange={(e) => {
+                      const isChecked = e.target.checked;
+                      setProfile({
+                        ...profile,
+                        is_fresher: isChecked
+                      });
+                    }}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#05603a]"></div>
+                </label>
               </div>
+
+              {profile?.is_fresher && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-[#05603a] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Fresher Mode Active: Prior experience is not required. Save profile to confirm.</span>
+                  </div>
+                  {(profile?.experience || []).length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setProfile({ ...profile, experience: [] })}
+                      className="text-[11px] font-bold text-red-600 hover:text-red-700 underline cursor-pointer text-left sm:text-right shrink-0"
+                    >
+                      Clear Experience Entries
+                    </button>
+                  )}
+                </div>
+              )}
 
               <div className="flex justify-end">
                 <button
@@ -880,12 +944,22 @@ export default function CareerProfilePage() {
                       ]
                     });
                   }}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 text-[#05603a] text-xs font-bold hover:bg-emerald-100 transition-colors"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 text-[#05603a] text-xs font-bold hover:bg-emerald-100 transition-colors cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add Experience</span>
                 </button>
               </div>
+
+              {profile?.is_fresher && (profile?.experience || []).length === 0 && (
+                <div className="text-center py-8 px-4 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+                  <Briefcase className="w-8 h-8 text-emerald-600/50 mx-auto mb-2" />
+                  <p className="text-xs font-bold text-gray-700">No Corporate Experience Needed</p>
+                  <p className="text-[11px] text-gray-500 mt-1 max-w-sm mx-auto">
+                    As an entry-level candidate, you don't need to add experience. Any campus projects, leadership roles, or internships can be added if desired.
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-4">
                 {(profile?.experience || []).map((exp, idx) => (
@@ -906,10 +980,12 @@ export default function CareerProfilePage() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
-                        <label className="block text-[11px] font-semibold text-gray-600 mb-1">Company *</label>
+                        <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                          Company {profile?.is_fresher ? '(Optional)' : '*'}
+                        </label>
                         <input
                           type="text"
-                          required
+                          required={!profile?.is_fresher}
                           placeholder="e.g. Google"
                           value={exp.company || ''}
                           onChange={(e) => {
@@ -922,10 +998,12 @@ export default function CareerProfilePage() {
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-semibold text-gray-600 mb-1">Job Title *</label>
+                        <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                          Job Title {profile?.is_fresher ? '(Optional)' : '*'}
+                        </label>
                         <input
                           type="text"
-                          required
+                          required={!profile?.is_fresher}
                           placeholder="Software Engineer"
                           value={exp.role || ''}
                           onChange={(e) => {
@@ -1141,19 +1219,20 @@ export default function CareerProfilePage() {
                           board_or_university: '',
                           major: '',
                           start_month: 'August',
-                          start_year: 2021,
+                          start_year: null,
                           end_month: 'May',
-                          end_year: 2025,
-                          graduation_year: 2025,
+                          end_year: null,
+                          graduation_year: null,
                           score_type: 'cgpa',
-                          cgpa: 8.5,
+                          cgpa: null,
                           percentage: null,
-                          active_backlogs: 0
+                          active_backlogs: 0,
+                          total_backlogs: 0
                         }
                       ]
                     });
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-[#05603a] text-xs font-bold hover:bg-emerald-100 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-[#05603a] text-xs font-bold hover:bg-emerald-100 transition-colors cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add Qualification</span>
@@ -1162,14 +1241,28 @@ export default function CareerProfilePage() {
 
               <div className="space-y-4">
                 {(profile?.education || []).map((edu, idx) => {
-                  const isSchool = edu.degree === '10th' || edu.degree === '12th';
-                  const isCollege = edu.degree === 'Undergraduate' || edu.degree === 'Postgraduate';
+                  const deg = edu.degree || 'Undergraduate';
+                  const is10th = deg === '10th';
+                  const is12th = deg === '12th';
+                  const isDiploma = deg === 'Diploma';
+                  const isUG = deg === 'Undergraduate';
+                  const isPG = deg === 'Postgraduate';
+
+                  const defaultTitle = is10th
+                    ? '10th (Secondary School)'
+                    : is12th
+                    ? '12th (Higher Secondary)'
+                    : isDiploma
+                    ? 'Diploma / Polytechnic'
+                    : isUG
+                    ? 'Undergraduate (UG)'
+                    : 'Postgraduate (PG)';
 
                   return (
-                    <div key={idx} className="p-4 rounded-xl bg-gray-50/80 border border-gray-200/80 space-y-3">
-                      <div className="flex items-center justify-between border-b border-gray-200/60 pb-2">
+                    <div key={idx} className="p-4 sm:p-5 rounded-xl bg-gray-50/80 border border-gray-200/80 space-y-4">
+                      <div className="flex items-center justify-between border-b border-gray-200/60 pb-2.5">
                         <span className="text-xs font-bold text-gray-800">
-                          #{idx + 1} {edu.degree} — {edu.institution || (isSchool ? 'School' : 'College / University')}
+                          #{idx + 1} • {defaultTitle}{edu.institution?.trim() ? ` — ${edu.institution.trim()}` : ''}
                         </span>
                         {profile.education.length > 1 && (
                           <button
@@ -1185,8 +1278,8 @@ export default function CareerProfilePage() {
                         )}
                       </div>
 
-                      {/* Level Selection */}
-                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                      {/* 1. Education Level Selection (Top Row) */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                           <label className="block text-[11px] font-bold text-gray-700 mb-1">Education Level *</label>
                           <select
@@ -1194,67 +1287,649 @@ export default function CareerProfilePage() {
                             onChange={(e) => {
                               const updated = [...profile.education];
                               const newDeg = e.target.value;
+                              const oldDeg = updated[idx].degree;
                               updated[idx].degree = newDeg;
-                              if (newDeg === '10th' || newDeg === '12th') {
-                                updated[idx].score_type = 'percentage';
-                                updated[idx].cgpa = null;
-                                updated[idx].percentage = updated[idx].percentage || 85.0;
+
+                              if (newDeg === '10th') {
+                                updated[idx].score_type = updated[idx].score_type || 'percentage';
+                                updated[idx].major = ''; // Clear stream for 10th
+                                updated[idx].active_backlogs = 0;
+                              } else if (newDeg === '12th') {
+                                updated[idx].score_type = updated[idx].score_type || 'percentage';
+                                if (oldDeg === '10th' || !updated[idx].major) {
+                                  updated[idx].major = 'Science (PCM)';
+                                }
+                                updated[idx].active_backlogs = 0;
+                              } else if (newDeg === 'Diploma') {
+                                updated[idx].score_type = updated[idx].score_type || 'percentage';
+                                if (oldDeg === '10th' || oldDeg === '12th') {
+                                  updated[idx].major = '';
+                                }
                               } else {
-                                updated[idx].score_type = 'cgpa';
-                                updated[idx].percentage = null;
-                                updated[idx].cgpa = updated[idx].cgpa || 8.5;
+                                updated[idx].score_type = updated[idx].score_type || 'cgpa';
                               }
                               setProfile({ ...profile, education: updated });
                             }}
-                            className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200 font-semibold text-gray-900"
+                            className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200 font-semibold text-gray-900 focus:outline-none focus:border-[#05603a]"
                           >
                             <option value="10th">10th (Secondary School)</option>
-                            <option value="12th">12th (Higher Secondary)</option>
-                            <option value="Undergraduate">Undergraduate (B.Tech / B.E. / B.Sc)</option>
-                            <option value="Postgraduate">Postgraduate (M.Tech / M.S. / MCA)</option>
+                            <option value="12th">12th (Higher Secondary / Intermediate)</option>
+                            <option value="Diploma">Diploma / Polytechnic</option>
+                            <option value="Undergraduate">Undergraduate (B.Tech / B.E. / BCA / B.Sc / B.Com)</option>
+                            <option value="Postgraduate">Postgraduate (M.Tech / MCA / MBA / M.Sc)</option>
                           </select>
                         </div>
+                      </div>
 
-                        {/* ============================================================== */}
-                        {/* CONDITIONAL BRANCH A: COLLEGE (UG or PG) */}
-                        {/* ============================================================== */}
-                        {isCollege && (
-                          <>
-                            <div className="sm:col-span-2">
-                              <label className="block text-[11px] font-bold text-gray-700 mb-1">College / University Name *</label>
-                              <input
-                                type="text"
-                                required
-                                placeholder="e.g. National Institute of Technology, Trichy"
-                                value={edu.institution || ''}
-                                onChange={(e) => {
-                                  const updated = [...profile.education];
-                                  updated[idx].institution = e.target.value;
-                                  setProfile({ ...profile, education: updated });
-                                }}
-                                className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200"
-                              />
-                            </div>
+                      {/* ============================================================== */}
+                      {/* LEVEL 1: 10th (Secondary School) */}
+                      {/* ============================================================== */}
+                      {is10th && (
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-1">
+                          <div className="sm:col-span-2">
+                            <label className="block text-[11px] font-bold text-gray-700 mb-1">School Name *</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="Enter 10th School Name"
+                              value={edu.institution || ''}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].institution = e.target.value;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#05603a]"
+                            />
+                          </div>
 
-                            <div>
-                              <label className="block text-[11px] font-bold text-gray-700 mb-1">Degree / Branch *</label>
-                              <input
-                                type="text"
-                                required
-                                placeholder="e.g. B.Tech Computer Science"
-                                value={edu.major || ''}
-                                onChange={(e) => {
-                                  const updated = [...profile.education];
-                                  updated[idx].major = e.target.value;
-                                  setProfile({ ...profile, education: updated });
-                                }}
-                                className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200"
-                              />
-                            </div>
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-700 mb-1">Board of Education *</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="e.g. CBSE / ICSE / State Board"
+                              value={edu.board_or_university || ''}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].board_or_university = e.target.value;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#05603a]"
+                            />
+                          </div>
 
-                            {/* Start Month & Year */}
-                            <div>
-                              <label className="block text-[11px] font-semibold text-gray-600 mb-1">Start Month</label>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-700 mb-1">Passing Year *</label>
+                            <input
+                              type="number"
+                              required
+                              placeholder="e.g. 2019"
+                              value={edu.end_year || edu.graduation_year || ''}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || null;
+                                const updated = [...profile.education];
+                                updated[idx].end_year = val;
+                                updated[idx].graduation_year = val;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200 font-bold"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-700 mb-1">Grading System</label>
+                            <select
+                              value={edu.score_type || 'percentage'}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].score_type = e.target.value;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200"
+                            >
+                              <option value="percentage">Percentage (%)</option>
+                              <option value="cgpa">CGPA (out of 10)</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-800 mb-1">
+                              {edu.score_type === 'cgpa' ? 'Score (CGPA) *' : 'Score Percentage (%) *'}
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              max={edu.score_type === 'cgpa' ? '10' : '100'}
+                              min="0"
+                              required
+                              placeholder={edu.score_type === 'cgpa' ? 'e.g. 9.2' : 'e.g. 88.5'}
+                              value={edu.score_type === 'cgpa' ? (edu.cgpa ?? '') : (edu.percentage ?? '')}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                const score = parseFloat(e.target.value) || 0;
+                                if (edu.score_type === 'cgpa') {
+                                  updated[idx].cgpa = score;
+                                  updated[idx].percentage = null;
+                                } else {
+                                  updated[idx].percentage = score;
+                                  updated[idx].cgpa = null;
+                                }
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200 font-bold text-emerald-800"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ============================================================== */}
+                      {/* LEVEL 2: 12th (Higher Secondary / Intermediate) */}
+                      {/* ============================================================== */}
+                      {is12th && (
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-1">
+                          <div className="sm:col-span-2">
+                            <label className="block text-[11px] font-bold text-gray-700 mb-1">School / Junior College Name *</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="Enter 12th School / College Name"
+                              value={edu.institution || ''}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].institution = e.target.value;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#05603a]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-700 mb-1">Board *</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="e.g. CBSE / ISC / State Board"
+                              value={edu.board_or_university || ''}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].board_or_university = e.target.value;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#05603a]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-700 mb-1">Stream *</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="e.g. Science (PCM) / Commerce / Arts"
+                              value={edu.major || ''}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].major = e.target.value;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-700 mb-1">Passing Year *</label>
+                            <input
+                              type="number"
+                              required
+                              placeholder="e.g. 2021"
+                              value={edu.end_year || edu.graduation_year || ''}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || null;
+                                const updated = [...profile.education];
+                                updated[idx].end_year = val;
+                                updated[idx].graduation_year = val;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200 font-bold"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-700 mb-1">Grading System</label>
+                            <select
+                              value={edu.score_type || 'percentage'}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].score_type = e.target.value;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200"
+                            >
+                              <option value="percentage">Percentage (%)</option>
+                              <option value="cgpa">CGPA (out of 10)</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-800 mb-1">
+                              {edu.score_type === 'cgpa' ? 'Score (CGPA) *' : 'Score Percentage (%) *'}
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              max={edu.score_type === 'cgpa' ? '10' : '100'}
+                              min="0"
+                              required
+                              placeholder={edu.score_type === 'cgpa' ? 'e.g. 8.8' : 'e.g. 85.0'}
+                              value={edu.score_type === 'cgpa' ? (edu.cgpa ?? '') : (edu.percentage ?? '')}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                const score = parseFloat(e.target.value) || 0;
+                                if (edu.score_type === 'cgpa') {
+                                  updated[idx].cgpa = score;
+                                  updated[idx].percentage = null;
+                                } else {
+                                  updated[idx].percentage = score;
+                                  updated[idx].cgpa = null;
+                                }
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200 font-bold text-emerald-800"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ============================================================== */}
+                      {/* LEVEL 3: Diploma / Polytechnic */}
+                      {/* ============================================================== */}
+                      {isDiploma && (
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-1">
+                          <div className="sm:col-span-2">
+                            <label className="block text-[11px] font-bold text-gray-700 mb-1">Polytechnic / Institute Name *</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="Enter Polytechnic / Institute Name"
+                              value={edu.institution || ''}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].institution = e.target.value;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#05603a]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-700 mb-1">Board / University *</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="e.g. State Board of Technical Education"
+                              value={edu.board_or_university || ''}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].board_or_university = e.target.value;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-700 mb-1">Branch / Field *</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="e.g. Computer Science, Mechanical Engg"
+                              value={edu.major || ''}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].major = e.target.value;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-700 mb-1">Start Year</label>
+                            <input
+                              type="number"
+                              placeholder="e.g. 2018"
+                              value={edu.start_year || ''}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].start_year = parseInt(e.target.value) || null;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-700 mb-1">End / Passing Year *</label>
+                            <input
+                              type="number"
+                              required
+                              placeholder="e.g. 2021"
+                              value={edu.end_year || edu.graduation_year || ''}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || null;
+                                const updated = [...profile.education];
+                                updated[idx].end_year = val;
+                                updated[idx].graduation_year = val;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200 font-bold"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-700 mb-1">Grading System</label>
+                            <select
+                              value={edu.score_type || 'percentage'}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].score_type = e.target.value;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200"
+                            >
+                              <option value="percentage">Percentage (%)</option>
+                              <option value="cgpa">CGPA (out of 10)</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-800 mb-1">Score *</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              required
+                              placeholder={edu.score_type === 'cgpa' ? 'e.g. 8.2' : 'e.g. 80.5'}
+                              value={edu.score_type === 'cgpa' ? (edu.cgpa ?? '') : (edu.percentage ?? '')}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                const score = parseFloat(e.target.value) || 0;
+                                if (edu.score_type === 'cgpa') {
+                                  updated[idx].cgpa = score;
+                                  updated[idx].percentage = null;
+                                } else {
+                                  updated[idx].percentage = score;
+                                  updated[idx].cgpa = null;
+                                }
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200 font-bold text-emerald-800"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-700 mb-1">Active Backlogs</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={edu.active_backlogs ?? 0}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].active_backlogs = parseInt(e.target.value) || 0;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ============================================================== */}
+                      {/* LEVEL 4: Undergraduate (B.Tech / B.E. / BCA / B.Sc / B.Com) */}
+                      {/* ============================================================== */}
+                      {isUG && (
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-1">
+                          <div className="sm:col-span-2">
+                            <label className="block text-[11px] font-bold text-gray-700 mb-1">College / Institute Name *</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="Enter College / Institute Name"
+                              value={edu.institution || ''}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].institution = e.target.value;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#05603a]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-700 mb-1">Affiliated University *</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="e.g. State Tech University / Autonomous"
+                              value={edu.board_or_university || ''}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].board_or_university = e.target.value;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-700 mb-1">Branch / Major *</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="e.g. Computer Science & Engineering"
+                              value={edu.major || ''}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].major = e.target.value;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-600 mb-1">Start Month</label>
+                            <select
+                              value={edu.start_month || 'August'}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].start_month = e.target.value;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2 rounded-lg border border-gray-200"
+                            >
+                              {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-600 mb-1">Start Year</label>
+                            <input
+                              type="number"
+                              placeholder="e.g. 2021"
+                              value={edu.start_year || ''}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].start_year = parseInt(e.target.value) || null;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2 rounded-lg border border-gray-200"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-600 mb-1">End / Graduation Month</label>
+                            <select
+                              value={edu.end_month || 'May'}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].end_month = e.target.value;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2 rounded-lg border border-gray-200"
+                            >
+                              {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-600 mb-1">Graduation Year *</label>
+                            <input
+                              type="number"
+                              required
+                              placeholder="e.g. 2025"
+                              value={edu.end_year || edu.graduation_year || ''}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || null;
+                                const updated = [...profile.education];
+                                updated[idx].end_year = val;
+                                updated[idx].graduation_year = val;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2 rounded-lg border border-gray-200 font-bold"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-700 mb-1">Grading System</label>
+                            <select
+                              value={edu.score_type || 'cgpa'}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].score_type = e.target.value;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2 rounded-lg border border-gray-200"
+                            >
+                              <option value="cgpa">CGPA (out of 10)</option>
+                              <option value="percentage">Percentage (%)</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-800 mb-1">
+                              {edu.score_type === 'percentage' ? 'Score Percentage (%) *' : 'CGPA (out of 10) *'}
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              max={edu.score_type === 'percentage' ? '100' : '10'}
+                              min="0"
+                              required
+                              placeholder={edu.score_type === 'percentage' ? 'e.g. 85.5' : 'e.g. 8.5'}
+                              value={edu.score_type === 'percentage' ? (edu.percentage ?? '') : (edu.cgpa ?? '')}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                const score = parseFloat(e.target.value) || 0;
+                                if (edu.score_type === 'percentage') {
+                                  updated[idx].percentage = score;
+                                  updated[idx].cgpa = null;
+                                } else {
+                                  updated[idx].cgpa = score;
+                                  updated[idx].percentage = null;
+                                }
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2 rounded-lg border border-gray-200 font-bold text-emerald-800"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-700 mb-1">Active Backlogs Count</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={edu.active_backlogs ?? 0}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].active_backlogs = parseInt(e.target.value) || 0;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2 rounded-lg border border-gray-200"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-700 mb-1">Total Backlogs History</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={edu.total_backlogs ?? 0}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].total_backlogs = parseInt(e.target.value) || 0;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2 rounded-lg border border-gray-200"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ============================================================== */}
+                      {/* LEVEL 5: Postgraduate (M.Tech / MCA / MBA / M.Sc) */}
+                      {/* ============================================================== */}
+                      {isPG && (
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-1">
+                          <div className="sm:col-span-2">
+                            <label className="block text-[11px] font-bold text-gray-700 mb-1">College / University Name *</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="Enter Postgraduate College / University Name"
+                              value={edu.institution || ''}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].institution = e.target.value;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#05603a]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-700 mb-1">Degree Name *</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="e.g. M.Tech / MCA / MBA / M.Sc"
+                              value={edu.board_or_university || ''}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].board_or_university = e.target.value;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-700 mb-1">Specialization / Major *</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="e.g. Artificial Intelligence / Data Science"
+                              value={edu.major || ''}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].major = e.target.value;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-600 mb-1">Start Month & Year</label>
+                            <div className="grid grid-cols-2 gap-1.5">
                               <select
                                 value={edu.start_month || 'August'}
                                 onChange={(e) => {
@@ -1266,13 +1941,9 @@ export default function CareerProfilePage() {
                               >
                                 {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
                               </select>
-                            </div>
-
-                            <div>
-                              <label className="block text-[11px] font-semibold text-gray-600 mb-1">Start Year</label>
                               <input
                                 type="number"
-                                placeholder="2021"
+                                placeholder="2023"
                                 value={edu.start_year || ''}
                                 onChange={(e) => {
                                   const updated = [...profile.education];
@@ -1282,10 +1953,11 @@ export default function CareerProfilePage() {
                                 className="w-full text-xs bg-white p-2 rounded-lg border border-gray-200"
                               />
                             </div>
+                          </div>
 
-                            {/* End Month & Year */}
-                            <div>
-                              <label className="block text-[11px] font-semibold text-gray-600 mb-1">End Month</label>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-600 mb-1">Graduation Month & Year *</label>
+                            <div className="grid grid-cols-2 gap-1.5">
                               <select
                                 value={edu.end_month || 'May'}
                                 onChange={(e) => {
@@ -1297,125 +1969,13 @@ export default function CareerProfilePage() {
                               >
                                 {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
                               </select>
-                            </div>
-
-                            <div>
-                              <label className="block text-[11px] font-semibold text-gray-600 mb-1">End / Graduation Year *</label>
                               <input
                                 type="number"
                                 required
                                 placeholder="2025"
-                                value={edu.end_year || edu.graduation_year || 2025}
-                                onChange={(e) => {
-                                  const val = parseInt(e.target.value) || 2025;
-                                  const updated = [...profile.education];
-                                  updated[idx].end_year = val;
-                                  updated[idx].graduation_year = val;
-                                  setProfile({ ...profile, education: updated });
-                                }}
-                                className="w-full text-xs bg-white p-2 rounded-lg border border-gray-200 font-bold"
-                              />
-                            </div>
-
-                            {/* CGPA */}
-                            <div>
-                              <label className="block text-[11px] font-bold text-gray-800 mb-1">CGPA (out of 10) *</label>
-                              <input
-                                type="number"
-                                step="0.01"
-                                max="10"
-                                min="0"
-                                required
-                                placeholder="8.85"
-                                value={edu.cgpa || ''}
-                                onChange={(e) => {
-                                  const updated = [...profile.education];
-                                  const score = parseFloat(e.target.value) || 0;
-                                  updated[idx].cgpa = score;
-                                  setProfile({ ...profile, education: updated });
-                                }}
-                                className="w-full text-xs bg-white p-2 rounded-lg border border-gray-200 font-bold text-emerald-800"
-                              />
-                            </div>
-
-                            {/* Active Backlogs */}
-                            <div>
-                              <label className="block text-[11px] font-semibold text-gray-700 mb-1">Active Backlogs Count</label>
-                              <input
-                                type="number"
-                                min="0"
-                                value={edu.active_backlogs ?? 0}
-                                onChange={(e) => {
-                                  const updated = [...profile.education];
-                                  updated[idx].active_backlogs = parseInt(e.target.value) || 0;
-                                  setProfile({ ...profile, education: updated });
-                                }}
-                                className="w-full text-xs bg-white p-2 rounded-lg border border-gray-200 font-medium"
-                              />
-                            </div>
-                          </>
-                        )}
-
-                        {/* ============================================================== */}
-                        {/* CONDITIONAL BRANCH B: 10th & 12th (School with Percentage) */}
-                        {/* ============================================================== */}
-                        {isSchool && (
-                          <>
-                            <div className="sm:col-span-2">
-                              <label className="block text-[11px] font-bold text-gray-700 mb-1">School Name *</label>
-                              <input
-                                type="text"
-                                required
-                                placeholder="e.g. Delhi Public School"
-                                value={edu.institution || ''}
-                                onChange={(e) => {
-                                  const updated = [...profile.education];
-                                  updated[idx].institution = e.target.value;
-                                  setProfile({ ...profile, education: updated });
-                                }}
-                                className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[11px] font-bold text-gray-700 mb-1">Board / Stream</label>
-                              <input
-                                type="text"
-                                placeholder={edu.degree === '12th' ? "CBSE - Science (PCM)" : "CBSE - General"}
-                                value={edu.major || ''}
-                                onChange={(e) => {
-                                  const updated = [...profile.education];
-                                  updated[idx].major = e.target.value;
-                                  setProfile({ ...profile, education: updated });
-                                }}
-                                className="w-full text-xs bg-white p-2.5 rounded-lg border border-gray-200"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[11px] font-semibold text-gray-600 mb-1">Start Year</label>
-                              <input
-                                type="number"
-                                placeholder="2017"
-                                value={edu.start_year || ''}
-                                onChange={(e) => {
-                                  const updated = [...profile.education];
-                                  updated[idx].start_year = parseInt(e.target.value) || null;
-                                  setProfile({ ...profile, education: updated });
-                                }}
-                                className="w-full text-xs bg-white p-2 rounded-lg border border-gray-200"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[11px] font-semibold text-gray-600 mb-1">End / Passing Year *</label>
-                              <input
-                                type="number"
-                                required
-                                placeholder="2019"
                                 value={edu.end_year || edu.graduation_year || ''}
                                 onChange={(e) => {
-                                  const val = parseInt(e.target.value) || 2019;
+                                  const val = parseInt(e.target.value) || null;
                                   const updated = [...profile.education];
                                   updated[idx].end_year = val;
                                   updated[idx].graduation_year = val;
@@ -1424,29 +1984,68 @@ export default function CareerProfilePage() {
                                 className="w-full text-xs bg-white p-2 rounded-lg border border-gray-200 font-bold"
                               />
                             </div>
+                          </div>
 
-                            <div>
-                              <label className="block text-[11px] font-bold text-gray-800 mb-1">Score Percentage (%) *</label>
-                              <input
-                                type="number"
-                                step="0.01"
-                                max="100"
-                                min="0"
-                                required
-                                placeholder="91.5"
-                                value={edu.percentage || ''}
-                                onChange={(e) => {
-                                  const updated = [...profile.education];
-                                  const score = parseFloat(e.target.value) || 0;
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-700 mb-1">Grading System</label>
+                            <select
+                              value={edu.score_type || 'cgpa'}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].score_type = e.target.value;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2 rounded-lg border border-gray-200"
+                            >
+                              <option value="cgpa">CGPA (out of 10)</option>
+                              <option value="percentage">Percentage (%)</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-gray-800 mb-1">
+                              {edu.score_type === 'percentage' ? 'Score Percentage (%) *' : 'CGPA (out of 10) *'}
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              max={edu.score_type === 'percentage' ? '100' : '10'}
+                              min="0"
+                              required
+                              placeholder={edu.score_type === 'percentage' ? 'e.g. 88.0' : 'e.g. 8.8'}
+                              value={edu.score_type === 'percentage' ? (edu.percentage ?? '') : (edu.cgpa ?? '')}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                const score = parseFloat(e.target.value) || 0;
+                                if (edu.score_type === 'percentage') {
                                   updated[idx].percentage = score;
-                                  setProfile({ ...profile, education: updated });
-                                }}
-                                className="w-full text-xs bg-white p-2 rounded-lg border border-gray-200 font-bold text-emerald-800"
-                              />
-                            </div>
-                          </>
-                        )}
-                      </div>
+                                  updated[idx].cgpa = null;
+                                } else {
+                                  updated[idx].cgpa = score;
+                                  updated[idx].percentage = null;
+                                }
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2 rounded-lg border border-gray-200 font-bold text-emerald-800"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-700 mb-1">Active Backlogs Count</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={edu.active_backlogs ?? 0}
+                              onChange={(e) => {
+                                const updated = [...profile.education];
+                                updated[idx].active_backlogs = parseInt(e.target.value) || 0;
+                                setProfile({ ...profile, education: updated });
+                              }}
+                              className="w-full text-xs bg-white p-2 rounded-lg border border-gray-200"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

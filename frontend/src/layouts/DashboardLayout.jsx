@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, Navigate, Link, useNavigate } from 'react-router-dom';
 import DashboardSidebar from '../components/sidebar/DashboardSidebar';
-import FloatingCopilotButton from '../components/common/FloatingCopilotButton';
 import { useAuth } from '../context/AuthContext';
 import {
   Bell,
@@ -20,6 +19,8 @@ import {
   X
 } from 'lucide-react';
 import { opportunityService } from '../services/opportunity.service';
+import { profileService } from '../services/assistant.service';
+import { calculateProfileCompletion } from '../utils/profileCompletion';
 import api from '../services/api';
 
 function formatTimeAgo(dateStr) {
@@ -46,6 +47,7 @@ export default function DashboardLayout() {
   const [syncSuccess, setSyncSuccess] = React.useState(false);
 
   const [syncToast, setSyncToast] = useState(null);
+  const [profilePercent, setProfilePercent] = useState(null);
 
   // Integration state
   const [integrationStatus, setIntegrationStatus] = useState({
@@ -75,15 +77,25 @@ export default function DashboardLayout() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch real integration and notification telemetry if available
+  // Fetch real integration, notification, and profile completion telemetry
   useEffect(() => {
     const fetchHeaderData = async () => {
       try {
-        const intRes = await api.get('/integrations/status').catch(() => null);
+        const [intRes, notifRes, profRes] = await Promise.all([
+          api.get('/integrations/status').catch(() => null),
+          api.get('/notifications').catch(() => null),
+          profileService.getProfile().catch(() => null)
+        ]);
+
         if (intRes?.data) {
           setIntegrationStatus(intRes.data);
         }
-        const notifRes = await api.get('/notifications').catch(() => null);
+
+        if (profRes) {
+          const stats = calculateProfileCompletion(profRes);
+          setProfilePercent(stats.percentage);
+        }
+
         if (notifRes?.data && Array.isArray(notifRes.data)) {
           setNotifications(
             notifRes.data.slice(0, 5).map((n) => ({
@@ -184,28 +196,60 @@ export default function DashboardLayout() {
 
           {/* Right: Actions & User Avatar */}
           <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 shrink-0">
+            {/* Top Profile Completion Bar / Link */}
+            <Link
+              to="/career-profile"
+              className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-emerald-50/80 hover:bg-emerald-100/90 border border-emerald-200/90 text-[#05603a] transition-all cursor-pointer shadow-2xs group shrink-0"
+              title="Career Profile Completion • Click to view and complete"
+            >
+              <User className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+              <div className="flex flex-col text-left">
+                <div className="flex items-center gap-1.5 leading-none">
+                  <span className="text-[11px] font-bold text-emerald-950">Profile</span>
+                  <span className="text-[10px] font-black text-[#05603a]">
+                    {profilePercent !== null ? `${profilePercent}%` : '85%'}
+                  </span>
+                </div>
+                <div className="w-12 sm:w-16 h-1 bg-emerald-200 rounded-full overflow-hidden mt-1">
+                  <div
+                    className="h-full bg-[#05603a] rounded-full transition-all duration-500"
+                    style={{ width: `${profilePercent ?? 85}%` }}
+                  />
+                </div>
+              </div>
+            </Link>
+
             {/* Inbox Integration Status Pills */}
-            <div className="hidden lg:flex items-center gap-2 bg-gray-50 border border-gray-200/70 p-1.5 rounded-xl text-[11px] font-semibold text-gray-600">
+            <div className="hidden sm:flex items-center gap-1 sm:gap-1.5 bg-gray-50 border border-gray-200/80 p-1 sm:p-1.5 rounded-xl text-[11px] font-semibold text-gray-700 shadow-2xs shrink-0">
               <Link
-                to="/integrations"
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-white transition-colors"
-                title="Google Gmail Integration"
+                to="/integrations?provider=gmail"
+                className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-white hover:shadow-2xs transition-all cursor-pointer group"
+                title="Google Gmail Integration • Click to open email integrations"
               >
+                <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
+                  <path fill="#EA4335" d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L12 9.545l8.073-6.052C21.69 2.28 24 3.434 24 5.457z"/>
+                </svg>
+                <span className="font-bold text-gray-800">Gmail</span>
                 <span className={`w-2 h-2 rounded-full ${integrationStatus?.gmail?.connected ? 'bg-emerald-500 animate-pulse' : 'bg-gray-300'}`}></span>
-                <span>Gmail</span>
-                <span className={`text-[10px] px-1 py-0.2 rounded font-bold ${integrationStatus?.gmail?.connected ? 'text-emerald-700 bg-emerald-50' : 'text-gray-500 bg-gray-100'}`}>
+                <span className={`hidden md:inline-block text-[10px] px-1 py-0.2 rounded font-bold ${integrationStatus?.gmail?.connected ? 'text-emerald-700 bg-emerald-50' : 'text-gray-500 bg-gray-100'}`}>
                   {integrationStatus?.gmail?.connected ? 'Connected' : 'Connect'}
                 </span>
               </Link>
               <span className="text-gray-300">|</span>
               <Link
-                to="/integrations"
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-white transition-colors"
-                title="Microsoft Outlook Integration"
+                to="/integrations?provider=outlook"
+                className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-white hover:shadow-2xs transition-all cursor-pointer group"
+                title="Microsoft Outlook Integration • Click to open email integrations"
               >
+                <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
+                  <path fill="#0078D4" d="M22 6v12a2 2 0 0 1-2 2H8V4h12a2 2 0 0 1 2 2z"/>
+                  <path fill="#28A8EA" d="M8 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4V4z"/>
+                  <circle cx="8" cy="12" r="3.5" fill="#FFFFFF"/>
+                  <circle cx="8" cy="12" r="2" fill="#0078D4"/>
+                </svg>
+                <span className="font-bold text-gray-800">Outlook</span>
                 <span className={`w-2 h-2 rounded-full ${integrationStatus?.outlook?.connected ? 'bg-emerald-500 animate-pulse' : 'bg-gray-300'}`}></span>
-                <span>Outlook</span>
-                <span className={`text-[10px] px-1 py-0.2 rounded font-bold ${integrationStatus?.outlook?.connected ? 'text-blue-700 bg-blue-50' : 'text-gray-500 bg-gray-100'}`}>
+                <span className={`hidden md:inline-block text-[10px] px-1 py-0.2 rounded font-bold ${integrationStatus?.outlook?.connected ? 'text-blue-700 bg-blue-50' : 'text-gray-500 bg-gray-100'}`}>
                   {integrationStatus?.outlook?.connected ? 'Connected' : 'Connect'}
                 </span>
               </Link>
@@ -303,7 +347,7 @@ export default function DashboardLayout() {
             </div>
 
             {/* Circular User Profile Avatar - Sleek, Small & Far Right */}
-            <div className="relative pl-0.5 sm:pl-1 border-l border-gray-100" ref={profileMenuRef}>
+            <div className="relative pl-2 sm:pl-3 border-l-2 border-gray-300" ref={profileMenuRef}>
               <button
                 onClick={() => {
                   setShowProfileMenu(!showProfileMenu);
@@ -311,8 +355,8 @@ export default function DashboardLayout() {
                 }}
                 className="flex items-center gap-2 p-0.5 sm:p-1 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer focus:outline-none"
               >
-                {/* Circle Avatar with Image / Initials */}
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#05603a] text-white flex items-center justify-center text-[11px] sm:text-xs font-bold ring-2 ring-emerald-200/70 shadow-2xs relative shrink-0">
+                {/* Circle Avatar with Image / Initials (Gmail-style Google Blue) */}
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#1a73e8] text-white flex items-center justify-center text-[11px] sm:text-xs font-bold ring-2 ring-blue-100 shadow-2xs relative shrink-0">
                   {user?.avatar_url ? (
                     <img src={user.avatar_url} alt={user?.full_name} className="w-full h-full rounded-full object-cover" />
                   ) : (
@@ -370,7 +414,7 @@ export default function DashboardLayout() {
                       className="flex items-center gap-2.5 px-4 py-2 hover:bg-gray-50 transition-colors"
                     >
                       <User className="w-3.5 h-3.5 text-gray-500" />
-                      <span>My Career Ground Truth</span>
+                      <span>My Career Profile</span>
                     </Link>
                     <Link
                       to="/settings"
@@ -437,9 +481,6 @@ export default function DashboardLayout() {
           <Outlet />
         </main>
       </div>
-
-      {/* Persistent Copilot Chat Button */}
-      <FloatingCopilotButton />
     </div>
   );
 }

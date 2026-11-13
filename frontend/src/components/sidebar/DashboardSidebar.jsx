@@ -27,8 +27,7 @@ export default function DashboardSidebar({ isOpen = false, onClose = () => {} })
     { label: 'Opportunities', path: '/opportunities', icon: Sparkles },
     { label: 'Applications', path: '/applications', icon: FileCheck },
     { label: 'Resumes', path: '/resumes', icon: FileText },
-    { label: 'Career Ground Truth', path: '/career-profile', icon: UserCheck },
-    { label: 'AI Assistant', path: '/assistant', icon: Bot },
+    { label: 'Career Profile', path: '/career-profile', icon: UserCheck },
   ];
 
   // Section 2: Integrations, System & Support
@@ -141,7 +140,7 @@ export default function DashboardSidebar({ isOpen = false, onClose = () => {} })
         <div className="p-4 border-t border-gray-100 shrink-0">
           <div className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50/80 mb-2">
             <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-8 h-8 rounded-full bg-[#05603a] text-white flex items-center justify-center font-bold text-xs ring-2 ring-emerald-100 shrink-0">
+              <div className="w-8 h-8 rounded-full bg-[#1a73e8] text-white flex items-center justify-center font-bold text-xs ring-2 ring-blue-100 shrink-0">
                 {user?.full_name ? user.full_name.charAt(0) : 'U'}
               </div>
               <div className="truncate">

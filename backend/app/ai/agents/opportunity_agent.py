@@ -185,6 +185,58 @@ class OpportunityAgent:
 
         return None
 
+    ADMIT_CARD_SIGNALS = [
+        "admit card", "hall ticket", "hallticket", "call letter",
+        "assessment link", "online test link", "exam slot", "slot booking",
+        "test credentials", "login credentials for test", "assessment invitation",
+        "invitation for online test", "exam schedule", "interview call letter"
+    ]
+
+    def is_admit_card(self, text: str = "", subject: str = "") -> tuple[bool, Dict[str, Any]]:
+        """
+        Detects whether an email is an Admit Card, Hall Ticket, or Online Assessment Invitation.
+        Returns (True, details) if detected, otherwise (False, {}).
+        """
+        subj = (subject or "").lower()
+        body = (text or "").lower()
+
+        has_signal = any(sig in subj or sig in body[:600] for sig in self.ADMIT_CARD_SIGNALS)
+        if not has_signal:
+            return False, {}
+
+        comp = None
+        for kc in CompanyValidator.KNOWN_COMPANIES:
+            if re.search(rf"\b{re.escape(kc)}\b", subj, re.IGNORECASE) or re.search(rf"\b{re.escape(kc)}\b", body[:300], re.IGNORECASE):
+                comp = kc.title() if len(kc) > 4 else kc.upper()
+                break
+        if not comp:
+            comp = self._extract_company(text, None, subject) or "Recruiter"
+        url_match = re.search(r"https?://[^\s<>\"']+", text)
+        test_url = url_match.group(0) if url_match else None
+
+        date_patterns = [
+            r'(?:exam date|test date|date of test|slot|scheduled on|date & time)[:\s]+([^\n\r.]+)',
+            r'([0-9]{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\s+[0-9]{4}(?:[,\s]+[0-9]{1,2}[:.][0-9]{2}\s*(?:AM|PM))?)'
+        ]
+        exam_date = "As per admit card"
+        for pat in date_patterns:
+            m = re.search(pat, text, re.IGNORECASE)
+            if m:
+                exam_date = m.group(1).strip()
+                break
+
+        reg_match = re.search(r'(?:registration\s+(?:no|id|number)|candidate\s+id|roll\s+(?:no|number))[:\s]+([A-Za-z0-9_-]+)', text, re.IGNORECASE)
+        candidate_id = reg_match.group(1).strip() if reg_match else None
+
+        return True, {
+            "company": comp,
+            "role": f"Assessment / Online Test ({comp})",
+            "test_url": test_url,
+            "exam_date": exam_date,
+            "candidate_id": candidate_id,
+            "subject": subject
+        }
+
     def is_career_opportunity(self, text: str, subject: str = "", from_addr: str = "") -> tuple[bool, str]:
         """
         Strictly evaluates whether an incoming email represents a genuine job, internship,
@@ -197,6 +249,12 @@ class OpportunityAgent:
         body_clean = (text or "").lower().strip()
         from_clean = (from_addr or "").lower().strip()
         combined = f"{subj_clean}\n{body_clean}"
+
+        # 0. Immediate check: Admit Card / Hall Ticket / Online Assessment Pass
+        # Admit cards belong to Application Pipeline, NOT new recruitment opportunities!
+        is_admit, _ = self.is_admit_card(text=body_clean, subject=subj_clean)
+        if is_admit:
+            return False, "admit_card"
 
         # 1. Immediate negative exclusion: Security, Login, Authentication
         auth_signals = [
@@ -539,16 +597,39 @@ class OpportunityAgent:
                 raw_str = f"{day} {month_str.title()} {y_num}, {int(hr_str):02d}:{mn_str} {ampm}"
                 return dt.isoformat(), raw_str
 
-        # 3. Date only: e.g. 18th September 2026 or 23rd Oct 2026
-        m3 = re.search(
+        # 3. Numeric Date: e.g. 16/10/2026, 16-10-2026, 16.10.2026 with optional time
+        m3_num = re.search(
+            self.DEADLINE_TRIGGER + r'\s*[-:]*\s*(?:is\s*)?'
+            r'([0-9]{1,2})[/\.-]([0-9]{1,2})[/\.-]([0-9]{4})'
+            r'(?:[,\s]+(?:till|by|at|,)?\s*([0-9]{1,2})[:.]([0-9]{2})\s*(AM|PM)?)?',
+            clean,
+            re.IGNORECASE
+        )
+        if m3_num:
+            d_str, m_str, y_str, hr_str, mn_str, ampm = m3_num.groups()
+            d_num, m_num, y_num = int(d_str), int(m_str), int(y_str)
+            if 1 <= m_num <= 12 and 1 <= d_num <= 31:
+                hr = int(hr_str) if hr_str else 23
+                mn = int(mn_str) if mn_str else 59
+                ampm = (ampm or "").upper()
+                if ampm == 'PM' and hr < 12:
+                    hr += 12
+                elif ampm == 'AM' and hr == 12:
+                    hr = 0
+                dt = datetime(y_num, m_num, d_num, hr, mn, tzinfo=timezone.utc)
+                raw_str = f"{d_num:02d}/{m_num:02d}/{y_num}, {hr:02d}:{mn:02d}"
+                return dt.isoformat(), raw_str
+
+        # 4. Date only: e.g. 18th September 2026 or 23rd Oct 2026
+        m4 = re.search(
             self.DEADLINE_TRIGGER + r'\s*[-:]*\s*(?:is\s*)?'
             r'(?:tomorrow\s*,\s*|today\s*,\s*)?'
             r'([0-9]{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)(?:\s+([0-9]{4}))?',
             clean,
             re.IGNORECASE
         )
-        if m3:
-            day, month_str, year = m3.groups()
+        if m4:
+            day, month_str, year = m4.groups()
             m_num = self.MONTH_MAP.get(month_str.lower()[:3])
             if m_num:
                 d_num = int(day)
@@ -775,16 +856,26 @@ class OpportunityAgent:
 
         # 5. Extract Deadline strictly from email text
         deadline_iso, deadline_raw = self.parse_deadline(text)
+        if not deadline_iso:
+            base_time = None
+            if email_received_at:
+                try:
+                    base_time = datetime.fromisoformat(email_received_at.replace("Z", "+00:00"))
+                except Exception:
+                    pass
+            if not base_time:
+                base_time = datetime.now(timezone.utc)
+            auto_dt = (base_time + timedelta(days=3)).replace(hour=23, minute=59, second=0, microsecond=0)
+            deadline_iso = auto_dt.isoformat()
+            deadline_raw = f"{auto_dt.day} {auto_dt.strftime('%b')} {auto_dt.year}, 11:59 PM"
 
-        # 6. Extract Skills
+        # 6. Extract Skills (Do not inject fake default skills)
         skill_catalog = [
             "Python", "JavaScript", "TypeScript", "React", "Node.js", "FastAPI", "Django",
             "Java", "C++", "Go", "Docker", "Kubernetes", "AWS", "MongoDB", "PostgreSQL",
             "SQL", "Git", "REST API", "GraphQL", "Tailwind CSS", "Next.js", "Redis"
         ]
         found_skills = [s for s in skill_catalog if re.search(rf"\b{re.escape(s)}\b", text, re.IGNORECASE)]
-        if not found_skills:
-            found_skills = ["Python", "FastAPI", "React", "SQL"]
 
         # 7. CGPA / Percentage requirement
         cgpa_match = re.search(r"(?:cgpa|gpa|percentage)[:\s]+(?:of\s+)?(\d+\.?\d*)", text, re.IGNORECASE)
@@ -794,19 +885,14 @@ class OpportunityAgent:
         grad_match = re.search(r"(?:batch of|graduating in|batch:?|batch\s+)(202[0-9])", text, re.IGNORECASE)
         grad_year = int(grad_match.group(1)) if grad_match else None
 
-        # 9. CTC / Stipend extraction
+        # 9. CTC / Stipend extraction (No fake placeholder stipend)
         ctc_match = re.search(r"(?:ctc|stipend|salary|package|compensation)[:\s]+([^\n\r.]+)", text, re.IGNORECASE)
-        if ctc_match:
-            stipend = ctc_match.group(1).strip()
-        elif "intern" in role.lower() or "intern" in text.lower():
-            stipend = "Competitive Stipend"
-        else:
-            stipend = "Competitive Salary / CTC"
+        stipend = ctc_match.group(1).strip() if ctc_match else None
 
-        # 10. Location extraction
+        # 10. Location extraction (No fake placeholder location)
         loc_patterns = [r"\b(Bengaluru|Bangalore|Hyderabad|Pune|Mumbai|Delhi NCR|Gurgaon|Noida|Remote|San Francisco|New York)\b"]
         loc_match = re.search(loc_patterns[0], text, re.IGNORECASE)
-        location = loc_match.group(1).title() if loc_match else "On-Campus / Hybrid"
+        location = loc_match.group(1).title() if loc_match else None
 
         # Attached JD detection
         clean_company = re.sub(r"[^\w\s]", "", company).replace(" ", "_")
@@ -834,7 +920,7 @@ class OpportunityAgent:
             skills=found_skills,
             stipend=stipend,
             location=location,
-            work_mode="Remote" if "remote" in location.lower() or "remote" in text.lower() else "Full-time",
+            work_mode="Remote" if (location and "remote" in location.lower()) or "remote" in text.lower() else None,
             grad_year=grad_year,
             cgpa=cgpa_required
         )
@@ -852,7 +938,7 @@ class OpportunityAgent:
             "deadline": deadline_iso,
             "deadline_raw": deadline_raw,
             "location": location,
-            "work_mode": "Remote" if "remote" in location.lower() or "remote" in text.lower() else "Full-time",
+            "work_mode": "Remote" if (location and "remote" in location.lower()) or "remote" in text.lower() else None,
             "stipend": stipend,
             "salary": stipend,
             "has_jd_attachment": True,

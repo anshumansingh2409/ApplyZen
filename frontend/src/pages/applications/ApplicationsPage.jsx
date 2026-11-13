@@ -47,6 +47,13 @@ export default function ApplicationsPage() {
     fetchApps();
   }, []);
 
+  const isAdmitCard = (app) =>
+    app.status === 'ADMIT_CARD' ||
+    app.is_admit_card === true ||
+    (app.role || '').toLowerCase().includes('admit card') ||
+    (app.role || '').toLowerCase().includes('hall ticket') ||
+    (app.role || '').toLowerCase().includes('assessment link');
+
   const filtered = applications.filter((app) => {
     const matchesSearch =
       app.company?.toLowerCase().includes(search.toLowerCase()) ||
@@ -54,19 +61,22 @@ export default function ApplicationsPage() {
 
     if (!matchesSearch) return false;
     if (activeTab === 'ALL') return true;
+    if (activeTab === 'ADMIT_CARDS') return isAdmitCard(app);
     if (activeTab === 'SUBMITTED')
-      return ['SUBMITTED', 'APPLIED', 'UNDER_REVIEW'].includes(app.status);
+      return ['SUBMITTED', 'APPLIED', 'UNDER_REVIEW'].includes(app.status) && !isAdmitCard(app);
     if (activeTab === 'ACTION_REQUIRED')
       return ['READY_FOR_REVIEW', 'ACTION_REQUIRED'].includes(app.status);
     if (activeTab === 'INTERVIEWS')
-      return ['INTERVIEW', 'ASSESSMENT', 'SHORTLISTED'].includes(app.status);
+      return ['INTERVIEW', 'ASSESSMENT', 'SHORTLISTED'].includes(app.status) && !isAdmitCard(app);
     if (activeTab === 'OFFERS') return app.status === 'OFFER';
     return true;
   });
 
   const submittedCount = applications.filter((a) =>
-    ['SUBMITTED', 'APPLIED', 'UNDER_REVIEW'].includes(a.status)
+    ['SUBMITTED', 'APPLIED', 'UNDER_REVIEW'].includes(a.status) && !isAdmitCard(a)
   ).length;
+
+  const admitCardCount = applications.filter(isAdmitCard).length;
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -75,7 +85,7 @@ export default function ApplicationsPage() {
         <div>
           <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Application Pipeline</h2>
           <p className="text-sm text-gray-500 mt-1">
-            Autonomous form autofill & submission. Every application is pre-filled, verified, and can be edited or reviewed at any time.
+            Autonomous form autofill & submission. Track recruitment drives, assessments, and verified hall tickets/admit cards.
           </p>
         </div>
 
@@ -96,6 +106,7 @@ export default function ApplicationsPage() {
       <div className="flex items-center gap-2 border-b border-gray-100 pb-3 overflow-x-auto">
         {[
           { id: 'ALL', label: `All Applications (${applications.length})` },
+          { id: 'ADMIT_CARDS', label: `🎫 Admit Cards (${admitCardCount})` },
           { id: 'SUBMITTED', label: `Submitted (${submittedCount})` },
           { id: 'ACTION_REQUIRED', label: 'Action Required' },
           { id: 'INTERVIEWS', label: 'Assessments & Interviews' },
@@ -133,35 +144,64 @@ export default function ApplicationsPage() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-2xs divide-y divide-gray-100 overflow-hidden">
           {filtered.map((app) => {
             const formUrl = app.google_form_url || app.application_url;
+            const admit = isAdmitCard(app);
+
             return (
               <div
                 key={app.id || app._id}
-                className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 hover:bg-gray-50/50 transition-colors"
+                className={`p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 transition-colors ${
+                  admit ? 'bg-indigo-50/30 hover:bg-indigo-50/50' : 'hover:bg-gray-50/50'
+                }`}
               >
                 <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
-                  <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center font-bold text-[#05603a] text-xs sm:text-base shrink-0">
-                    {app.company?.charAt(0) || 'C'}
+                  <div className={`w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl border flex items-center justify-center font-bold text-xs sm:text-base shrink-0 ${
+                    admit
+                      ? 'bg-indigo-100 border-indigo-200 text-indigo-700'
+                      : 'bg-emerald-50 border border-emerald-100 text-[#05603a]'
+                  }`}>
+                    {admit ? '🎫' : (app.company?.charAt(0) || 'C')}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                       <h4 className="text-xs sm:text-sm font-bold text-gray-900 truncate">{app.company}</h4>
-                      <span className="text-[10px] sm:text-xs px-1.5 py-0.2 rounded bg-emerald-50 text-[#05603a] font-bold shrink-0">
-                        {app.match_score || 90}% Match
-                      </span>
+                      {admit ? (
+                        <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-bold shrink-0 border border-indigo-200">
+                          🎫 Admit Card
+                        </span>
+                      ) : (
+                        <span className="text-[10px] sm:text-xs px-1.5 py-0.2 rounded bg-emerald-50 text-[#05603a] font-bold shrink-0">
+                          {app.match_score || 90}% Match
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-gray-500 font-medium truncate mt-0.5">
                       <span className="text-gray-700 font-medium truncate">{app.role}</span>
-                      <span className="text-gray-300">•</span>
-                      <span className="text-gray-400 text-[10px] sm:text-[11px] truncate">
-                        Resume: <strong className="font-semibold text-gray-600">{app.resume_used_name || 'Master Resume'}</strong>
-                      </span>
+                      {admit ? (
+                        <>
+                          <span className="text-gray-300">•</span>
+                          <span className="text-indigo-700 font-semibold text-[10px] sm:text-[11px] truncate">
+                            Schedule: {app.admit_card_details?.exam_date || 'Scheduled'}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-gray-300">•</span>
+                          <span className="text-gray-400 text-[10px] sm:text-[11px] truncate">
+                            Resume: <strong className="font-semibold text-gray-600">{app.resume_used_name || 'Master Resume'}</strong>
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 flex-nowrap overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden w-full sm:w-auto justify-between sm:justify-end pt-1 sm:pt-0">
                   {/* Status Badge */}
-                  {app.status === 'SUBMITTED' ? (
+                  {admit ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-2xs shrink-0 whitespace-nowrap">
+                      <span>Admit Card Active</span>
+                    </span>
+                  ) : app.status === 'SUBMITTED' ? (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold bg-emerald-50 text-[#05603a] border border-emerald-200 shadow-2xs shrink-0 whitespace-nowrap">
                       <CheckCircle2 className="w-3 h-3 text-[#05603a]" />
                       <span>Submitted</span>
@@ -184,17 +224,21 @@ export default function ApplicationsPage() {
                     </span>
                   )}
 
-                  {/* Form link button if available */}
+                  {/* Test Link or Form Link button if available */}
                   {formUrl && (
                     <a
                       href={formUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] sm:text-xs font-semibold border border-purple-200 transition-colors shrink-0 whitespace-nowrap"
-                      title="Open Google Form"
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold border transition-colors shrink-0 whitespace-nowrap ${
+                        admit
+                          ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-700 shadow-2xs'
+                          : 'bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200'
+                      }`}
+                      title={admit ? "Launch Online Assessment" : "Open Google Form"}
                     >
-                      <span>📝 Form</span>
-                      <ExternalLink className="w-2.5 h-2.5 text-purple-400" />
+                      <span>{admit ? '🚀 Launch Test' : '📝 Form'}</span>
+                      <ExternalLink className={`w-2.5 h-2.5 ${admit ? 'text-indigo-200' : 'text-purple-400'}`} />
                     </a>
                   )}
 
@@ -203,7 +247,7 @@ export default function ApplicationsPage() {
                     to={`/applications/${app.id || app._id}`}
                     className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 bg-[#05603a] hover:bg-[#034a27] text-white text-[10px] sm:text-xs font-semibold rounded-lg transition-colors shadow-2xs shrink-0 whitespace-nowrap"
                   >
-                    <span>Check & Edit</span>
+                    <span>{admit ? 'View Details' : 'Check & Edit'}</span>
                     <ChevronRight className="w-3 h-3" />
                   </Link>
                 </div>

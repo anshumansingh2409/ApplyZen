@@ -11,23 +11,37 @@ import {
   ShieldAlert,
   CheckCircle2,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  User
 } from 'lucide-react';
 import { opportunityService } from '../../services/opportunity.service';
 import { applicationService } from '../../services/application.service';
+import { profileService } from '../../services/assistant.service';
+import { calculateProfileCompletion } from '../../utils/profileCompletion';
 
 export default function DashboardPage() {
   const [opportunities, setOpportunities] = useState([]);
   const [applications, setApplications] = useState([]);
+  const [profileStats, setProfileStats] = useState({
+    percentage: 0,
+    completedCount: 0,
+    totalCount: 6,
+    missingItems: []
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [opps, apps] = await Promise.all([
-          opportunityService.list(),
-          applicationService.list()
+        const [opps, apps, prof] = await Promise.all([
+          opportunityService.list().catch(() => []),
+          applicationService.list().catch(() => []),
+          profileService.getProfile().catch(() => null)
         ]);
+
+        if (prof) {
+          setProfileStats(calculateProfileCompletion(prof));
+        }
 
         // Deduplicate opportunities
         const dedupedOpps = [];
@@ -83,12 +97,95 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 sm:space-y-8 max-w-full min-w-0">
+      {/* 1. Complete Your Profile System Banner */}
+      <div className="bg-gradient-to-r from-emerald-50 via-teal-50/40 to-white p-4 sm:p-5 rounded-2xl border border-emerald-200/90 shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5 min-w-0">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#05603a] to-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
+              {profileStats.percentage === 100 ? (
+                <CheckCircle2 className="w-6 h-6 text-white" />
+              ) : (
+                <span className="text-xs font-black">{profileStats.percentage}%</span>
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm sm:text-base font-bold text-gray-900">
+                  {profileStats.percentage === 100
+                    ? 'Career Profile 100% Complete!'
+                    : `Complete Your Profile (${profileStats.percentage}%)`}
+                </h3>
+                {profileStats.percentage === 100 ? (
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                    Verified for 1-Click Apply
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full">
+                    {profileStats.missingItems.length} steps remaining
+                  </span>
+                )}
+              </div>
+
+              <p className="text-xs text-gray-600 mt-1">
+                {profileStats.percentage === 100
+                  ? 'All essential details are verified. Your job applications will auto-fill with zero errors.'
+                  : 'Complete your profile to unlock verified 1-click Google Form auto-fills and higher resume match scores.'}
+              </p>
+
+              {/* Progress Track */}
+              <div className="w-full max-w-md h-2 bg-gray-200/80 rounded-full overflow-hidden mt-2.5">
+                <div
+                  className="h-full bg-gradient-to-r from-emerald-500 to-[#05603a] rounded-full transition-all duration-700"
+                  style={{ width: `${profileStats.percentage}%` }}
+                />
+              </div>
+
+              {/* Missing Items Chips */}
+              {profileStats.missingItems.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap mt-2.5">
+                  <span className="text-[11px] font-semibold text-gray-500 mr-1">Missing:</span>
+                  {profileStats.missingItems.slice(0, 3).map((item) => (
+                    <Link
+                      key={item.id}
+                      to={`/career-profile?tab=${item.id}`}
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#05603a] bg-white border border-emerald-200/90 hover:bg-emerald-50 px-2 py-0.5 rounded-lg transition-colors shadow-2xs"
+                    >
+                      <span>+ {item.label}</span>
+                    </Link>
+                  ))}
+                  {profileStats.missingItems.length > 3 && (
+                    <Link
+                      to="/career-profile"
+                      className="text-[11px] font-bold text-emerald-800 hover:underline"
+                    >
+                      +{profileStats.missingItems.length - 3} more
+                    </Link>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="shrink-0 flex items-center gap-2 self-start md:self-center">
+            <Link
+              to="/career-profile"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#05603a] hover:bg-[#034a27] text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+            >
+              <User className="w-3.5 h-3.5" />
+              <span>{profileStats.percentage === 100 ? 'View Profile' : 'Complete Profile'}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+      </div>
+
       {/* Top Banner / Welcome */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-xs">
         <div className="min-w-0">
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">Career Control Center</h2>
           <p className="text-xs sm:text-sm text-gray-500 mt-1">
-            Real-time telemetry of your opportunities, applications, and AI automated workflows.
+            Real-time telemetry of your opportunities, applications, and career pipeline.
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">

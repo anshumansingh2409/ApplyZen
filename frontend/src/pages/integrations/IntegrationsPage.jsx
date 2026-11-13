@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Mail, CheckCircle2, AlertCircle, RefreshCw, ShieldCheck, Trash2, Key, HelpCircle, ExternalLink, X, Smartphone, Globe } from 'lucide-react';
 import api from '../../services/api';
 import { opportunityService } from '../../services/opportunity.service';
@@ -9,6 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 
 export default function IntegrationsPage() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -51,6 +53,31 @@ export default function IntegrationsPage() {
   useEffect(() => {
     fetchStatus();
   }, []);
+
+  // Smooth scroll and highlight provider when navigated from header
+  useEffect(() => {
+    if (loading) return;
+    const provider = searchParams.get('provider');
+    if (provider === 'gmail') {
+      const el = document.getElementById('gmail-section');
+      if (el) {
+        setTimeout(() => {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.classList.add('ring-4', 'ring-emerald-400/50');
+          setTimeout(() => el.classList.remove('ring-4', 'ring-emerald-400/50'), 3000);
+        }, 100);
+      }
+    } else if (provider === 'outlook') {
+      const el = document.getElementById('outlook-section');
+      if (el) {
+        setTimeout(() => {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.classList.add('ring-4', 'ring-blue-400/50');
+          setTimeout(() => el.classList.remove('ring-4', 'ring-blue-400/50'), 3000);
+        }, 100);
+      }
+    }
+  }, [searchParams, loading]);
 
   const openGmailAppPasswordModal = () => {
     if (!appEmail && user?.email) {
@@ -366,6 +393,7 @@ export default function IntegrationsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* Gmail Card */}
         <div
+          id="gmail-section"
           className={`p-4 sm:p-6 rounded-2xl border transition-all flex flex-col justify-between ${status?.gmail?.connected
             ? 'border-emerald-500 bg-emerald-50/20 shadow-2xs'
             : 'border-gray-200 bg-white shadow-2xs'
@@ -473,6 +501,7 @@ export default function IntegrationsPage() {
 
         {/* Outlook Card */}
         <div
+          id="outlook-section"
           className={`p-4 sm:p-6 rounded-2xl border transition-all flex flex-col justify-between ${status?.outlook?.connected
             ? 'border-blue-500 bg-blue-50/20 shadow-2xs'
             : 'border-gray-200 bg-white shadow-2xs'

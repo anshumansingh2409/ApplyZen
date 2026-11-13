@@ -151,6 +151,9 @@ class CareerProfileSchema(BaseModel):
     twitter_url: Optional[str] = None
     bio: Optional[str] = None
     
+    # Candidate status & work experience
+    is_fresher: bool = False
+    
     # Form details
     education: List[Education] = []
     skills: List[SkillItem] = []

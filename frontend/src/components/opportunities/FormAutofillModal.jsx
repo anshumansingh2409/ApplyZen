@@ -29,7 +29,7 @@ export default function FormAutofillModal({ isOpen, onClose, opportunity, userPr
   const fullName = userProfile?.full_name || `${userProfile?.first_name || 'Anshuman'} ${userProfile?.last_name || 'Singh'}`.trim();
   const email = userProfile?.email || 'anshumansingh2409@gmail.com';
   const phone = userProfile?.phone || '+91 9876543210';
-  const college = edu.institution || 'Galgotias University (GU/GCET)';
+  const college = edu.institution || edu.board_or_university || '';
   const degree = edu.degree || 'B.Tech';
   const branch = edu.major || 'Computer Science & Engineering';
   const batch = edu.graduation_year || 2027;

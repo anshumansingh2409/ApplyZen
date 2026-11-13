@@ -40,7 +40,7 @@ export default function CareerGroundTruthAutofill({ formUrl, opportunity }) {
   const fullName = profile?.full_name || profile?.legal_name || 'Anshuman Singh';
   const email = profile?.email || 'anshumansingh2409@gmail.com';
   const phone = profile?.phone || '+91 9876543210';
-  const college = edu.institution || edu.board_or_university || 'Galgotias University';
+  const college = edu.institution || edu.board_or_university || '';
   const degree = edu.degree || 'B.Tech (Undergraduate)';
   const major = edu.major || 'Computer Science & Engineering';
   const gradYear = edu.graduation_year || edu.end_year || '2027';
@@ -110,10 +110,10 @@ export default function CareerGroundTruthAutofill({ formUrl, opportunity }) {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-sm sm:text-base font-bold text-gray-900">Career Ground Truth • Form Auto-Fill</h3>
+              <h3 className="text-sm sm:text-base font-bold text-gray-900">Career Profile • Form Auto-Fill</h3>
               <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
                 <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                <span>Verified Ground Truth</span>
+                <span>Verified Career Profile</span>
               </span>
             </div>
             <p className="text-xs text-gray-500 mt-0.5">

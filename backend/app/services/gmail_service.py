@@ -7,6 +7,7 @@ Zero mock data — strictly real emails.
 """
 import base64
 import re
+import uuid
 import imaplib
 import email as pyemail
 from email.header import decode_header
@@ -505,6 +506,49 @@ class GmailService:
                                 body_parts.append(pyhtml.unescape(raw_decoded))
 
                     body_text = "\n\n".join(body_parts).strip()
+
+                    # Check if this is an Admit Card / Hall Ticket / Online Assessment notice
+                    is_admit, admit_data = opportunity_agent.is_admit_card(text=body_text, subject=subject)
+                    if is_admit:
+                        from app.database.repositories.application_repository import application_repo
+                        app_id = str(uuid.uuid4())
+                        comp_name = admit_data.get("company") or "Company"
+                        admit_app = {
+                            "_id": app_id,
+                            "user_id": user_id,
+                            "company": comp_name,
+                            "role": admit_data.get("role") or f"Online Assessment ({comp_name})",
+                            "status": "ADMIT_CARD",
+                            "is_admit_card": True,
+                            "application_url": admit_data.get("test_url"),
+                            "admit_card_details": admit_data,
+                            "match_score": 90,
+                            "timeline": [
+                                {
+                                    "title": "🎫 Admit Card / Hall Ticket Issued",
+                                    "description": f"Assessment schedule: {admit_data.get('exam_date')}. Link: {admit_data.get('test_url') or 'See email'}",
+                                    "status_tag": "ADMIT_CARD",
+                                    "timestamp": datetime.now(timezone.utc).isoformat()
+                                }
+                            ],
+                            "created_at": datetime.now(timezone.utc).isoformat(),
+                            "updated_at": datetime.now(timezone.utc).isoformat()
+                        }
+                        await application_repo.create(admit_app)
+                        await db.ingested_emails.update_one(
+                            {"user_id": user_id, "message_id": msg_id},
+                            {"$set": {
+                                "subject": subject,
+                                "from": from_header,
+                                "is_opportunity": False,
+                                "is_admit_card": True,
+                                "status": "admit_card_routed",
+                                "application_id": app_id,
+                                "completed_at": datetime.now(timezone.utc).isoformat()
+                            }}
+                        )
+                        synced_count += 1
+                        continue
 
                     # Strict opportunity relevance check
                     if not self._is_career_relevant(subject, body_text, from_header):

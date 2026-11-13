@@ -425,7 +425,7 @@ Verified by applyZen Placement Telemetry Engine
             <div className="pt-6 border-t-2 border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
               <div className="space-y-1">
                 <p className="font-bold text-gray-900">Training & Placement Cell</p>
-                <p className="text-[11px] text-gray-500">Galgotias University • Campus Recruitment Division</p>
+                <p className="text-[11px] text-gray-500">Campus Recruitment Division</p>
                 <div className="flex items-center gap-1 text-[10px] text-emerald-700 font-semibold pt-1">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Digitally verified via applyZen Recruiter Telemetry</span>

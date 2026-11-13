@@ -40,36 +40,47 @@ const formatEmailDate = (dateStr) => {
   }
 };
 
-const getTimeLeftInfo = (deadlineStr) => {
-  if (!deadlineStr) {
-    return { label: 'Time Left: Not given', isClosed: false, isMissing: true };
+const getTimeLeftInfo = (deadlineStr, arrivalStr) => {
+  let target = null;
+  if (deadlineStr) {
+    try {
+      const parsed = new Date(deadlineStr);
+      if (!isNaN(parsed.getTime())) {
+        target = parsed;
+      }
+    } catch {}
   }
-  try {
-    const target = new Date(deadlineStr);
-    if (isNaN(target.getTime())) {
-      return { label: 'Time Left: Not given', isClosed: false, isMissing: true };
-    }
-    const now = new Date();
-    const diffMs = target.getTime() - now.getTime();
-    if (diffMs <= 0) {
-      return { label: 'Time Left: 0', isClosed: true, isMissing: false };
-    }
-    const diffSec = Math.floor(diffMs / 1000);
-    const diffMin = Math.floor(diffSec / 60);
-    const diffHours = Math.floor(diffMin / 60);
-    const diffDays = Math.floor(diffHours / 24);
+  // If deadline is missing or unparseable, estimate a 3-day active registration window from arrival
+  if (!target && arrivalStr) {
+    try {
+      const arr = new Date(arrivalStr);
+      if (!isNaN(arr.getTime())) {
+        target = new Date(arr.getTime() + 3 * 24 * 60 * 60 * 1000);
+      }
+    } catch {}
+  }
 
-    if (diffDays > 0) {
-      const remHours = diffHours % 24;
-      return { label: `Time Left: ${diffDays}d ${remHours}h`, isClosed: false, isMissing: false };
-    } else if (diffHours > 0) {
-      const remMin = diffMin % 60;
-      return { label: `Time Left: ${diffHours}h ${remMin}m`, isClosed: false, isMissing: false };
-    } else {
-      return { label: `Time Left: ${Math.max(1, diffMin)}m`, isClosed: false, isMissing: false };
-    }
-  } catch {
-    return { label: 'Time Left: Not given', isClosed: false, isMissing: true };
+  if (!target) {
+    return { label: 'Active Drive', isClosed: false, isMissing: false };
+  }
+  const now = new Date();
+  const diffMs = target.getTime() - now.getTime();
+  if (diffMs <= 0) {
+    return { label: 'Registration Closed', isClosed: true, isMissing: false };
+  }
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHours = Math.floor(diffMin / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffDays > 0) {
+    const remHours = diffHours % 24;
+    return { label: `Time Left: ${diffDays}d ${remHours}h`, isClosed: false, isMissing: false };
+  } else if (diffHours > 0) {
+    const remMin = diffMin % 60;
+    return { label: `Time Left: ${diffHours}h ${remMin}m`, isClosed: false, isMissing: false };
+  } else {
+    return { label: `Time Left: ${Math.max(1, diffMin)}m`, isClosed: false, isMissing: false };
   }
 };
 
@@ -656,52 +667,52 @@ export default function OpportunitiesPage() {
               className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 hover:border-emerald-200 shadow-2xs hover:shadow-sm transition-all space-y-4 flex flex-col justify-between min-w-0"
             >
               <div>
-                <div className="flex flex-col xs:flex-row items-start xs:items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center font-bold text-[#05603a] text-base sm:text-lg shrink-0">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center font-bold text-[#05603a] text-base sm:text-lg shrink-0 mt-0.5">
                       {opp.company?.charAt(0) || 'C'}
                     </div>
-                    <div className="min-w-0">
-                      <h4 className="text-sm sm:text-base font-bold text-gray-900 leading-snug truncate">{opp.company}</h4>
-                      <p className="text-xs text-gray-600 font-medium truncate">{opp.role}</p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="text-sm sm:text-base font-bold text-gray-900 leading-snug">{opp.company}</h4>
+                        
+                        {/* Time Left Badge directly beside Company Name */}
+                        {(() => {
+                          const tl = getTimeLeftInfo(opp.deadline, opp.email_received_at || opp.email_timestamp || opp.created_at);
+                          return (
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold border flex items-center gap-1 shadow-2xs ${
+                                tl.isClosed
+                                  ? 'bg-red-50 text-red-700 border-red-200'
+                                  : 'bg-amber-50 text-amber-800 border-amber-200'
+                              }`}
+                              title={tl.isClosed ? 'Registration is closed' : 'Registration time left'}
+                            >
+                              <Clock className="w-3 h-3 shrink-0" />
+                              <span>{tl.label}</span>
+                            </span>
+                          );
+                        })()}
+
+                        {/* Match score badge beside Company Name */}
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-[#05603a] font-bold text-[10px] sm:text-[11px] border border-emerald-200">
+                          {opp.match_score || 85}% Match
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-600 font-medium truncate mt-0.5">{opp.role}</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end shrink-0 w-full xs:w-auto">
-                    {/* Time Left Badge */}
-                    {(() => {
-                      const tl = getTimeLeftInfo(opp.deadline);
-                      return (
-                        <span
-                          className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] font-bold border flex items-center gap-1 shadow-2xs ${
-                            tl.isClosed
-                              ? 'bg-red-50 text-red-700 border-red-200'
-                              : tl.isMissing
-                              ? 'bg-gray-50 text-gray-500 border-gray-200'
-                              : 'bg-amber-50 text-amber-800 border-amber-200'
-                          }`}
-                          title={tl.isClosed ? 'Registration is closed' : 'Registration time left'}
-                        >
-                          <Clock className="w-3 h-3 shrink-0" />
-                          <span>{tl.label}</span>
-                        </span>
-                      );
-                    })()}
-
-                    <span className="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-emerald-50 text-[#05603a] font-bold text-xs border border-emerald-200">
-                      {opp.match_score || 85}% Match
-                    </span>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleDeleteOpp(opp.id || opp._id);
-                      }}
-                      title="Delete opportunity"
-                      className="p-1 sm:p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleDeleteOpp(opp.id || opp._id);
+                    }}
+                    title="Delete opportunity"
+                    className="p-1 sm:p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
 
                 {/* Form Badge (Left of View JD), View JD Button & Recruiter Source (all unified in one inline strip) */}
@@ -781,24 +792,6 @@ export default function OpportunitiesPage() {
                     </a>
                   )}
                 </div>
-
-                {/* Stipend & Metadata Strip */}
-                <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-3 text-xs text-gray-600">
-                  <span className="font-bold text-emerald-800 bg-emerald-50/80 px-2 py-0.5 rounded border border-emerald-100">
-                    💵 {opp.stipend || opp.salary || '4.5 LPA'}
-                  </span>
-                  <span>📍 {opp.location || 'Galgotias University'}</span>
-                  <span>💼 {opp.work_mode || 'Physical Campus Drive'}</span>
-                </div>
-
-                {/* Skills Preview */}
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {(opp.skills_required || []).slice(0, 4).map((s, idx) => (
-                    <span key={idx} className="text-[11px] px-2 py-0.5 bg-gray-50 border border-gray-200 rounded text-gray-600 font-medium">
-                      {s}
-                    </span>
-                  ))}
-                </div>
               </div>
 
               {/* Card Footer: Arrival and Form Deadline placed together at bottom */}
@@ -808,12 +801,14 @@ export default function OpportunitiesPage() {
                     <Clock className="w-3.5 h-3.5 text-[#05603a] shrink-0" />
                     <span>Arrival: <strong className="font-semibold text-gray-900">{formatEmailDate(opp.email_received_at || opp.email_timestamp || opp.created_at) || 'Recent'}</strong></span>
                   </span>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium">
-                    <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                    <span>
-                      Deadline: <strong className="font-semibold">{opp.deadline_raw || (opp.deadline ? formatEmailDate(opp.deadline) : 'Not given') || 'Not given'}</strong>
+                  {(opp.deadline || opp.deadline_raw) && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium">
+                      <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>
+                        Deadline: <strong className="font-semibold">{opp.deadline_raw || formatEmailDate(opp.deadline)}</strong>
+                      </span>
                     </span>
-                  </span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">

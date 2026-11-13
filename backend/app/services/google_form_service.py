@@ -202,7 +202,7 @@ class GoogleFormService:
         email = user_doc.get("email") or career_profile.get("email") or "anshumansingh2409@gmail.com"
         phone = career_profile.get("phone") or "+91 9876543210"
         roll_no = career_profile.get("roll_number") or "23010101001"
-        college = edu_ug.get("institution") or edu_ug.get("board_or_university") or "Galgotias University"
+        college = edu_ug.get("institution") or edu_ug.get("board_or_university") or ""
         degree = edu_ug.get("degree") or "B.Tech"
         branch = edu_ug.get("major") or "Computer Science & Engineering"
         batch = str(edu_ug.get("graduation_year") or edu_ug.get("end_year") or "2027")

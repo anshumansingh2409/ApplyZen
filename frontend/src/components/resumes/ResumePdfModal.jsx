@@ -40,7 +40,7 @@ export default function ResumePdfModal({ resume, isOpen, onClose, userProfile })
   const email = userProfile?.email || resume.user_email || 'anshumansingh2409@gmail.com';
   const phone = userProfile?.phone || '+91 98765 43210';
   const location = userProfile?.location || 'Greater Noida / Delhi NCR, India';
-  const college = userProfile?.college || 'Galgotias University (GU / GCET)';
+  const college = userProfile?.college || userProfile?.education?.[0]?.institution || '';
   const degree = userProfile?.degree || 'B.Tech - Computer Science & Engineering (2023 - 2027)';
   const cgpa = userProfile?.cgpa || '8.8 / 10.0';
 

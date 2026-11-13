@@ -38,6 +38,38 @@ class CareerOrchestratorAgent:
         Executes complete opportunity extraction, deduplication, eligibility,
         resume selection, and form preparation pipeline.
         """
+        # Step 0: Check if it's an Admit Card / Hall Ticket / Assessment notice
+        is_admit, admit_data = opportunity_agent.is_admit_card(text=email_content)
+        if is_admit:
+            comp_name = admit_data.get("company") or "Company"
+            logger.info(f"[Orchestrator] Admit Card detected for {comp_name}. Routing to Application Pipeline.")
+            app_id = str(uuid.uuid4())
+            admit_app = {
+                "_id": app_id,
+                "user_id": user_id,
+                "company": comp_name,
+                "role": admit_data.get("role") or f"Online Assessment ({comp_name})",
+                "status": ApplicationStatus.ADMIT_CARD.value,
+                "is_admit_card": True,
+                "application_url": admit_data.get("test_url"),
+                "admit_card_details": admit_data,
+                "match_score": 90,
+                "source_email": source_email,
+                "provider_message_id": provider_message_id,
+                "timeline": [
+                    {
+                        "title": "🎫 Admit Card / Hall Ticket Issued",
+                        "description": f"Assessment schedule: {admit_data.get('exam_date')}. Link: {admit_data.get('test_url') or 'See email'}",
+                        "status_tag": ApplicationStatus.ADMIT_CARD.value,
+                        "timestamp": datetime.now(timezone.utc).isoformat()
+                    }
+                ],
+                "created_at": email_received_at or datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            await application_repo.create(admit_app)
+            return {"status": "admit_card_routed", "application_id": app_id, "is_admit_card": True}
+
         # Step 1: Opportunity Extraction
         opp_data = await opportunity_agent.extract_opportunity(
             email_content,
